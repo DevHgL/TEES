@@ -12,7 +12,11 @@ export interface CreateCaptureData {
 }
 
 export interface ICaptureRepository {
-  create(data: CreateCaptureData): Promise<Capture>;
+  /**
+   * Grava a captura somente se o treinador tiver menos de `maxTeamSize` Pokémons.
+   * A checagem e a gravação são atômicas; retorna `null` quando o time está cheio.
+   */
+  createWithinTeamLimit(data: CreateCaptureData, maxTeamSize: number): Promise<Capture | null>;
   findByTrainerId(trainerId: string): Promise<Capture[]>;
   countByTrainerId(trainerId: string): Promise<number>;
 }

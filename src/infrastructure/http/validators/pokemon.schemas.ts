@@ -24,6 +24,9 @@ export const pokemonIdParamSchema = z.object({
 
 export const listPokemonsQuerySchema = z.object({
   type: z.string().trim().min(1).optional(),
+  name: z.string().trim().min(1).max(50).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export type CreatePokemonInput = z.infer<typeof createPokemonSchema>;

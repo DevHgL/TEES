@@ -7,6 +7,7 @@ import {
   PokemonFilter,
   UpdatePokemonData,
 } from '@domain/repositories/IPokemonRepository';
+import { Paginated, PaginationParams } from '@domain/repositories/Pagination';
 
 export class InMemoryPokemonRepository implements IPokemonRepository {
   private readonly pokemons = new Map<string, Pokemon>();
@@ -17,15 +18,26 @@ export class InMemoryPokemonRepository implements IPokemonRepository {
     }
   }
 
-  async findAll(filter?: PokemonFilter): Promise<Pokemon[]> {
-    const all = Array.from(this.pokemons.values());
+  async findAll(
+    filter: PokemonFilter,
+    { page, limit }: PaginationParams,
+  ): Promise<Paginated<Pokemon>> {
+    const type = filter.type?.toLowerCase();
+    const name = filter.name?.toLowerCase();
 
-    if (!filter?.type) {
-      return all;
-    }
+    const matches = Array.from(this.pokemons.values()).filter(
+      (pokemon) =>
+        (!type || pokemon.types.some((t) => t.toLowerCase() === type)) &&
+        (!name || pokemon.name.toLowerCase().includes(name)),
+    );
 
-    const type = filter.type.toLowerCase();
-    return all.filter((pokemon) => pokemon.types.some((t) => t.toLowerCase() === type));
+    return {
+      data: matches.slice((page - 1) * limit, page * limit),
+      page,
+      limit,
+      total: matches.length,
+      totalPages: Math.ceil(matches.length / limit),
+    };
   }
 
   async findById(id: string): Promise<Pokemon | null> {

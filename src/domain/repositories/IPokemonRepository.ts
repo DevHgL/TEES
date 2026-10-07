@@ -1,7 +1,10 @@
 import { Pokemon, PokemonBaseStats } from '@domain/entities/Pokemon';
+import { Paginated, PaginationParams } from '@domain/repositories/Pagination';
 
 export interface PokemonFilter {
   type?: string;
+  /** Busca parcial, sem diferenciar maiúsculas/minúsculas. */
+  name?: string;
 }
 
 export interface CreatePokemonData {
@@ -14,7 +17,7 @@ export interface CreatePokemonData {
 export type UpdatePokemonData = Partial<CreatePokemonData>;
 
 export interface IPokemonRepository {
-  findAll(filter?: PokemonFilter): Promise<Pokemon[]>;
+  findAll(filter: PokemonFilter, pagination: PaginationParams): Promise<Paginated<Pokemon>>;
   findById(id: string): Promise<Pokemon | null>;
   create(data: CreatePokemonData): Promise<Pokemon>;
   update(id: string, data: UpdatePokemonData): Promise<Pokemon | null>;

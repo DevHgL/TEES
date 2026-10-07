@@ -44,10 +44,16 @@
 
       <section id="tab-catalog" hidden>
         <form id="catalog-form" class="search">
+          <input name="name" placeholder="Buscar por nome" />
           <input name="type" placeholder="Filtrar por tipo (ex: fire)" />
           <button type="submit">Filtrar</button>
         </form>
         <div id="catalog-grid" class="grid"></div>
+        <div id="catalog-pager" class="pager" hidden>
+          <button id="prev-page" class="ghost">‹ Anterior</button>
+          <span id="page-info" class="muted"></span>
+          <button id="next-page" class="ghost">Próxima ›</button>
+        </div>
       </section>
     </main>
 

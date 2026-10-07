@@ -5,9 +5,11 @@ import {
   PokemonFilter,
   UpdatePokemonData,
 } from '@domain/repositories/IPokemonRepository';
+import { Paginated, PaginationParams } from '@domain/repositories/Pagination';
 
 import { isRecordNotFoundError } from '@infrastructure/database/prismaErrors';
 import {
+  Prisma,
   PrismaClient,
   Pokemon as PokemonRecord,
 } from '@infrastructure/database/generated/prisma/client';
@@ -15,13 +17,32 @@ import {
 export class PrismaPokemonRepository implements IPokemonRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findAll(filter?: PokemonFilter): Promise<Pokemon[]> {
-    const records = await this.prisma.pokemon.findMany({
-      where: filter?.type ? { types: { has: filter.type.toLowerCase() } } : undefined,
-      orderBy: { createdAt: 'asc' },
-    });
+  async findAll(
+    filter: PokemonFilter,
+    { page, limit }: PaginationParams,
+  ): Promise<Paginated<Pokemon>> {
+    const where: Prisma.PokemonWhereInput = {
+      ...(filter.type && { types: { has: filter.type.toLowerCase() } }),
+      ...(filter.name && { name: { contains: filter.name, mode: 'insensitive' } }),
+    };
 
-    return records.map(toDomain);
+    const [records, total] = await this.prisma.$transaction([
+      this.prisma.pokemon.findMany({
+        where,
+        orderBy: { createdAt: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.pokemon.count({ where }),
+    ]);
+
+    return {
+      data: records.map(toDomain),
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findById(id: string): Promise<Pokemon | null> {

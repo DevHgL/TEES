@@ -193,22 +193,52 @@ async function loadTeam() {
 
 // ---------- catálogo local ----------
 
-async function loadCatalog(type = '') {
+const CATALOG_PAGE_SIZE = 12;
+const catalogState = { page: 1, name: '', type: '' };
+
+async function loadCatalog() {
   const grid = $('#catalog-grid');
+  const pager = $('#catalog-pager');
+  const params = new URLSearchParams({
+    page: catalogState.page,
+    limit: CATALOG_PAGE_SIZE,
+    ...(catalogState.name && { name: catalogState.name }),
+    ...(catalogState.type && { type: catalogState.type }),
+  });
+
   try {
-    const query = type ? `?type=${encodeURIComponent(type)}` : '';
-    const pokemons = await api(`/pokemons${query}`);
-    grid.innerHTML = pokemons.length
-      ? pokemons.map((p) => pokemonCard(p)).join('')
+    const result = await api(`/pokemons?${params}`);
+    grid.innerHTML = result.data.length
+      ? result.data.map((p) => pokemonCard(p)).join('')
       : '<p class="muted">Nenhum Pokémon encontrado.</p>';
+
+    pager.hidden = result.totalPages <= 1;
+    $('#page-info').textContent =
+      `Página ${result.page} de ${result.totalPages} · ${result.total} Pokémons`;
+    $('#prev-page').disabled = result.page <= 1;
+    $('#next-page').disabled = result.page >= result.totalPages;
   } catch (err) {
+    pager.hidden = true;
     grid.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
   }
 }
 
 $('#catalog-form').addEventListener('submit', (e) => {
   e.preventDefault();
-  loadCatalog(e.target.type.value.trim());
+  catalogState.name = e.target.name.value.trim();
+  catalogState.type = e.target.type.value.trim();
+  catalogState.page = 1;
+  loadCatalog();
+});
+
+$('#prev-page').addEventListener('click', () => {
+  catalogState.page -= 1;
+  loadCatalog();
+});
+
+$('#next-page').addEventListener('click', () => {
+  catalogState.page += 1;
+  loadCatalog();
 });
 
 // ---------- abas ----------

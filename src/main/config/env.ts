@@ -12,4 +12,5 @@ export const env = {
   port: Number(process.env.PORT) || 3000,
   databaseUrl: required('DATABASE_URL'),
   pokeApiBaseUrl: process.env.POKEAPI_BASE_URL || 'https://pokeapi.co/api/v2',
+  pokedexCacheTtlHours: Number(process.env.POKEDEX_CACHE_TTL_HOURS) || 168,
 };

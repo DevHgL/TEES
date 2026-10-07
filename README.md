@@ -64,7 +64,7 @@ npm run typecheck   # checagem de tipos sem emitir arquivos
 
 | Método | Rota                   | Descrição                                    |
 | ------ | ---------------------- | -------------------------------------------- |
-| GET    | `/api/v1/pokemons`     | Lista Pokémons do catálogo (filtro `?type=`) |
+| GET    | `/api/v1/pokemons`     | Lista paginada (`?page=&limit=&name=&type=`) |
 | GET    | `/api/v1/pokemons/:id` | Busca uma espécie por ID                     |
 | POST   | `/api/v1/pokemons`     | Cadastra um Pokémon manualmente              |
 | PUT    | `/api/v1/pokemons/:id` | Atualiza os dados de um Pokémon              |
@@ -81,6 +81,20 @@ npm run typecheck   # checagem de tipos sem emitir arquivos
 | GET    | `/api/v1/trainers/:trainerId/team`     | Lista o time atual do treinador                      |
 
 **Regra de negócio:** o time ativo comporta no máximo **6 Pokémons**; a 7ª captura retorna `422`.
+
+### Destaques de implementação
+
+- **Cache da PokéAPI (padrão Decorator):** `CachedPokeApiGateway` envolve o `PokeApiGateway` e
+  implementa a mesma interface `IPokeApiGateway`. As consultas ficam salvas na tabela
+  `pokedex_cache` (validade configurável em `POKEDEX_CACHE_TTL_HOURS`, padrão 7 dias). Buscas
+  repetidas caem de centenas de ms para poucos ms, e Pokémons já consultados continuam
+  disponíveis mesmo com a PokéAPI fora do ar. Nenhum caso de uso foi alterado, só a factory.
+- **Limite de 6 à prova de concorrência:** a captura conta o time e grava em uma única transação,
+  com `SELECT ... FOR UPDATE` na linha do treinador. Requisições simultâneas do mesmo treinador são
+  serializadas: com 5 Pokémons no time e 5 capturas em paralelo, exatamente 1 é aceita.
+- **Paginação e busca:** `GET /pokemons` retorna `{ data, page, limit, total, totalPages }`, com
+  `page`/`limit` validados pelo Zod (`limit` máximo de 100) e busca parcial por nome sem
+  diferenciar maiúsculas/minúsculas.
 
 ### Tratamento de erros
 

@@ -23,9 +23,9 @@ export class PokemonController {
   ) {}
 
   list = async (req: Request, res: Response): Promise<void> => {
-    const query = listPokemonsQuerySchema.parse(req.query);
-    const pokemons = await this.listPokemonsUseCase.execute(query);
-    res.status(200).json(pokemons);
+    const { type, name, page, limit } = listPokemonsQuerySchema.parse(req.query);
+    const result = await this.listPokemonsUseCase.execute({ type, name }, { page, limit });
+    res.status(200).json(result);
   };
 
   getById = async (req: Request, res: Response): Promise<void> => {

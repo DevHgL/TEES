@@ -27,7 +27,7 @@ export class CapturePokemonUseCase {
       throw new TrainerNotFoundError(trainerId);
     }
 
-    // Valida a regra antes de consultar a PokéAPI para evitar chamadas externas desnecessárias.
+    // Checagem antecipada: evita consultar a PokéAPI quando o time já está cheio.
     const teamSize = await this.captureRepository.countByTrainerId(trainerId);
 
     if (teamSize >= Trainer.MAX_TEAM_SIZE) {
@@ -40,14 +40,24 @@ export class CapturePokemonUseCase {
       throw new PokedexEntryNotFoundError(pokemonName);
     }
 
-    return this.captureRepository.create({
-      trainerId,
-      pokedexNumber: entry.pokedexNumber,
-      name: entry.name,
-      nickname,
-      types: entry.types,
-      baseStats: entry.baseStats,
-      imageUrl: entry.imageUrl,
-    });
+    // A regra é revalidada de forma atômica na gravação, cobrindo capturas simultâneas.
+    const capture = await this.captureRepository.createWithinTeamLimit(
+      {
+        trainerId,
+        pokedexNumber: entry.pokedexNumber,
+        name: entry.name,
+        nickname,
+        types: entry.types,
+        baseStats: entry.baseStats,
+        imageUrl: entry.imageUrl,
+      },
+      Trainer.MAX_TEAM_SIZE,
+    );
+
+    if (!capture) {
+      throw new TeamFullError();
+    }
+
+    return capture;
   }
 }

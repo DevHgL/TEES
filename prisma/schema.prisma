@@ -58,3 +58,23 @@ model Capture {
   @@index([trainerId])
   @@map("captures")
 }
+
+/// Cache das consultas à PokéAPI (lookupKey = termo buscado, normalizado em minúsculas).
+model PokedexCacheEntry {
+  lookupKey      String   @id @map("lookup_key")
+  pokedexNumber  Int      @map("pokedex_number")
+  name           String
+  types          String[]
+  hp             Int
+  attack         Int
+  defense        Int
+  specialAttack  Int      @map("special_attack")
+  specialDefense Int      @map("special_defense")
+  speed          Int
+  imageUrl       String?  @map("image_url")
+  height         Float
+  weight         Float
+  cachedAt       DateTime @default(now()) @map("cached_at")
+
+  @@map("pokedex_cache")
+}

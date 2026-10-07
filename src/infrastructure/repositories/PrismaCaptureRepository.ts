@@ -9,20 +9,35 @@ import {
 export class PrismaCaptureRepository implements ICaptureRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async create(data: CreateCaptureData): Promise<Capture> {
-    const record = await this.prisma.capture.create({
-      data: {
-        trainerId: data.trainerId,
-        pokedexNumber: data.pokedexNumber,
-        name: data.name,
-        nickname: data.nickname,
-        types: data.types,
-        ...data.baseStats,
-        imageUrl: data.imageUrl,
-      },
-    });
+  async createWithinTeamLimit(
+    data: CreateCaptureData,
+    maxTeamSize: number,
+  ): Promise<Capture | null> {
+    return this.prisma.$transaction(async (tx) => {
+      // Trava a linha do treinador até o fim da transação: capturas simultâneas do mesmo
+      // treinador são serializadas e a contagem abaixo não pode ficar desatualizada.
+      await tx.$queryRaw`SELECT id FROM trainers WHERE id = ${data.trainerId}::uuid FOR UPDATE`;
 
-    return toDomain(record);
+      const teamSize = await tx.capture.count({ where: { trainerId: data.trainerId } });
+
+      if (teamSize >= maxTeamSize) {
+        return null;
+      }
+
+      const record = await tx.capture.create({
+        data: {
+          trainerId: data.trainerId,
+          pokedexNumber: data.pokedexNumber,
+          name: data.name,
+          nickname: data.nickname,
+          types: data.types,
+          ...data.baseStats,
+          imageUrl: data.imageUrl,
+        },
+      });
+
+      return toDomain(record);
+    });
   }
 
   async findByTrainerId(trainerId: string): Promise<Capture[]> {

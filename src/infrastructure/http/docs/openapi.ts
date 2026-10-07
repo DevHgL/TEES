@@ -16,7 +16,7 @@ export const openApiDocument = {
     '/pokemons': {
       get: {
         tags: ['Pokemons'],
-        summary: 'Lista Pokémons do catálogo local',
+        summary: 'Lista Pokémons do catálogo local (paginado)',
         parameters: [
           {
             name: 'type',
@@ -25,16 +25,34 @@ export const openApiDocument = {
             schema: { type: 'string' },
             description: 'Filtra pelo tipo do Pokémon (ex: fire, water).',
           },
+          {
+            name: 'name',
+            in: 'query',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Busca parcial pelo nome, sem diferenciar maiúsculas/minúsculas.',
+          },
+          {
+            name: 'page',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 1, default: 1 },
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          },
         ],
         responses: {
           '200': {
-            description: 'Lista de Pokémons.',
+            description: 'Página de Pokémons.',
             content: {
-              'application/json': {
-                schema: { type: 'array', items: { $ref: '#/components/schemas/Pokemon' } },
-              },
+              'application/json': { schema: { $ref: '#/components/schemas/PaginatedPokemons' } },
             },
           },
+          '400': { $ref: '#/components/responses/ValidationError' },
         },
       },
       post: {
@@ -111,7 +129,7 @@ export const openApiDocument = {
     '/pokedex/search': {
       get: {
         tags: ['Pokedex'],
-        summary: 'Consulta uma espécie diretamente na PokéAPI',
+        summary: 'Consulta uma espécie na PokéAPI (com cache persistido no PostgreSQL)',
         parameters: [
           {
             name: 'name',
@@ -182,7 +200,8 @@ export const openApiDocument = {
       post: {
         tags: ['Trainers'],
         summary: 'Captura um Pokémon (dados obtidos da PokéAPI) para o time do treinador',
-        description: 'Regra de negócio: o time ativo comporta no máximo 6 Pokémons.',
+        description:
+          'Regra de negócio: o time ativo comporta no máximo 6 Pokémons. A checagem é atômica (transação com lock no treinador), inclusive para capturas simultâneas.',
         requestBody: {
           required: true,
           content: {
@@ -249,6 +268,16 @@ export const openApiDocument = {
           types: { type: 'array', items: { type: 'string' }, example: ['electric'] },
           baseStats: { $ref: '#/components/schemas/PokemonBaseStats' },
           imageUrl: { type: 'string', format: 'uri', nullable: true },
+        },
+      },
+      PaginatedPokemons: {
+        type: 'object',
+        properties: {
+          data: { type: 'array', items: { $ref: '#/components/schemas/Pokemon' } },
+          page: { type: 'integer', example: 1 },
+          limit: { type: 'integer', example: 20 },
+          total: { type: 'integer', example: 3 },
+          totalPages: { type: 'integer', example: 1 },
         },
       },
       CreatePokemonInput: {
