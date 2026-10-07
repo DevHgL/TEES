@@ -1,0 +1,60 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/infrastructure/database/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Catálogo local de espécies (CRUD da Entrega 1, agora persistido).
+model Pokemon {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  types          String[]
+  hp             Int
+  attack         Int
+  defense        Int
+  specialAttack  Int      @map("special_attack")
+  specialDefense Int      @map("special_defense")
+  speed          Int
+  imageUrl       String?  @map("image_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("pokemons")
+}
+
+model Trainer {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  email     String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  captures  Capture[]
+
+  @@map("trainers")
+}
+
+/// Pokémon capturado por um treinador, com os dados oficiais obtidos da PokéAPI.
+model Capture {
+  id             String   @id @default(uuid()) @db.Uuid
+  trainerId      String   @map("trainer_id") @db.Uuid
+  pokedexNumber  Int      @map("pokedex_number")
+  name           String
+  nickname       String?
+  types          String[]
+  hp             Int
+  attack         Int
+  defense        Int
+  specialAttack  Int      @map("special_attack")
+  specialDefense Int      @map("special_defense")
+  speed          Int
+  imageUrl       String?  @map("image_url")
+  capturedAt     DateTime @default(now()) @map("captured_at")
+  trainer        Trainer  @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+
+  @@index([trainerId])
+  @@map("captures")
+}

@@ -1,0 +1,297 @@
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --text: #1d2330;
+  --muted: #6b7280;
+  --border: #e3e5ea;
+  --accent: #e3350d;
+  --accent-text: #ffffff;
+  --error: #b42318;
+  --ok: #067647;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161b;
+    --surface: #1d2028;
+    --text: #e8eaef;
+    --muted: #9aa1ae;
+    --border: #2d313b;
+    --error: #f97066;
+    --ok: #47cd89;
+  }
+}
+
+[hidden] {
+  display: none !important;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.trainer-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+button,
+select,
+input {
+  font: inherit;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+button {
+  cursor: pointer;
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+button.ghost {
+  background: transparent;
+  color: inherit;
+  border-color: currentColor;
+}
+
+.trainer-form,
+.search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+}
+.trainer-form {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.search input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.tabs button {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+}
+.tabs button.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+main {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 8px 0 24px;
+}
+section > p {
+  padding: 0 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.card.big {
+  max-width: 360px;
+  margin: 0 16px;
+}
+.card.empty {
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  min-height: 200px;
+  border-style: dashed;
+}
+.card img {
+  width: 100%;
+  max-width: 180px;
+  aspect-ratio: 1;
+  object-fit: contain;
+  align-self: center;
+}
+.card h3 {
+  margin: 0;
+  text-transform: capitalize;
+}
+.card .sub {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.types {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.type {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #fff;
+  text-transform: capitalize;
+  background: #777;
+}
+.type.normal {
+  background: #9fa19f;
+}
+.type.fire {
+  background: #e62829;
+}
+.type.water {
+  background: #2980ef;
+}
+.type.electric {
+  background: #d4a800;
+}
+.type.grass {
+  background: #3fa129;
+}
+.type.ice {
+  background: #3dcef3;
+}
+.type.fighting {
+  background: #ff8000;
+}
+.type.poison {
+  background: #9141cb;
+}
+.type.ground {
+  background: #915121;
+}
+.type.flying {
+  background: #81b9ef;
+}
+.type.psychic {
+  background: #ef4179;
+}
+.type.bug {
+  background: #91a119;
+}
+.type.rock {
+  background: #afa981;
+}
+.type.ghost {
+  background: #704170;
+}
+.type.dragon {
+  background: #5060e1;
+}
+.type.dark {
+  background: #624d4e;
+}
+.type.steel {
+  background: #60a1b8;
+}
+.type.fairy {
+  background: #ef70ef;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 56px 32px 1fr;
+  gap: 4px 8px;
+  font-size: 0.8rem;
+  align-items: center;
+}
+.stats .bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+.stats .bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.muted {
+  color: var(--muted);
+}
+.error {
+  color: var(--error);
+  padding: 0 16px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  padding: 10px 16px;
+  border-radius: 8px;
+  max-width: calc(100% - 32px);
+}
+.toast.error {
+  background: var(--error);
+  color: #fff;
+}
+
+footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 16px;
+}
+footer a {
+  color: inherit;
+}

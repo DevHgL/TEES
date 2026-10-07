@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PokéManager</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>PokéManager</h1>
+      <div class="trainer-bar">
+        <label for="trainer-select">Treinador</label>
+        <select id="trainer-select"></select>
+        <button id="new-trainer-btn" class="ghost">+ Novo</button>
+      </div>
+    </header>
+
+    <form id="trainer-form" class="trainer-form" hidden>
+      <input name="name" placeholder="Nome" required maxlength="100" />
+      <input name="email" type="email" placeholder="E-mail" required />
+      <button type="submit">Cadastrar</button>
+    </form>
+
+    <nav class="tabs">
+      <button data-tab="pokedex" class="active">Pokédex</button>
+      <button data-tab="team">Meu time</button>
+      <button data-tab="catalog">Catálogo local</button>
+    </nav>
+
+    <main>
+      <section id="tab-pokedex">
+        <form id="search-form" class="search">
+          <input name="name" placeholder="Buscar na PokéAPI (ex: pikachu)" required />
+          <button type="submit">Buscar</button>
+        </form>
+        <div id="search-result"></div>
+      </section>
+
+      <section id="tab-team" hidden>
+        <p id="team-summary" class="muted"></p>
+        <div id="team-grid" class="grid"></div>
+      </section>
+
+      <section id="tab-catalog" hidden>
+        <form id="catalog-form" class="search">
+          <input name="type" placeholder="Filtrar por tipo (ex: fire)" />
+          <button type="submit">Filtrar</button>
+        </form>
+        <div id="catalog-grid" class="grid"></div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <footer>
+      API documentada em <a href="/api/docs">/api/docs</a> · dados oficiais da
+      <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>

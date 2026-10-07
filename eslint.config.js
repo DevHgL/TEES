@@ -4,7 +4,13 @@ const eslintConfigPrettier = require('eslint-config-prettier');
 
 module.exports = tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'eslint.config.js'],
+    ignores: [
+      'public/**',
+      'dist/**',
+      'node_modules/**',
+      'eslint.config.js',
+      'src/infrastructure/database/generated/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

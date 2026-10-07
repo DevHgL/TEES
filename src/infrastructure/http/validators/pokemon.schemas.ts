@@ -11,7 +11,7 @@ export const baseStatsSchema = z.object({
 
 export const createPokemonSchema = z.object({
   name: z.string().trim().min(1, 'name é obrigatório'),
-  types: z.array(z.string().trim().min(1)).min(1, 'informe ao menos um type'),
+  types: z.array(z.string().trim().toLowerCase().min(1)).min(1, 'informe ao menos um type'),
   baseStats: baseStatsSchema,
   imageUrl: z.string().url().optional(),
 });

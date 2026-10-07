@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 
-import { PokemonNotFoundError } from '@domain/errors/PokemonNotFoundError';
+import { AppError } from '@domain/errors/AppError';
 
 export function errorHandler(
   err: unknown,
@@ -20,8 +20,14 @@ export function errorHandler(
     return;
   }
 
-  if (err instanceof PokemonNotFoundError) {
-    res.status(404).json({ message: err.message });
+  if (err instanceof AppError) {
+    res.status(err.statusCode).json({ message: err.message });
+    return;
+  }
+
+  // JSON malformado no corpo da requisição (lançado pelo express.json()).
+  if (err instanceof SyntaxError && 'type' in err && err.type === 'entity.parse.failed') {
+    res.status(400).json({ message: 'JSON inválido no corpo da requisição.' });
     return;
   }
 

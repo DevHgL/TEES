@@ -5,11 +5,12 @@ import { ListPokemonsUseCase } from '@application/use-cases/pokemon/ListPokemons
 import { UpdatePokemonUseCase } from '@application/use-cases/pokemon/UpdatePokemonUseCase';
 
 import { PokemonController } from '@infrastructure/http/controllers/PokemonController';
-import { InMemoryPokemonRepository } from '@infrastructure/repositories/InMemoryPokemonRepository';
-import { pokemonSeed } from '@infrastructure/repositories/pokemonSeed';
+import { PrismaPokemonRepository } from '@infrastructure/repositories/PrismaPokemonRepository';
+
+import { prisma } from '@main/config/database';
 
 export function makePokemonController(): PokemonController {
-  const pokemonRepository = new InMemoryPokemonRepository(pokemonSeed);
+  const pokemonRepository = new PrismaPokemonRepository(prisma);
 
   return new PokemonController(
     new ListPokemonsUseCase(pokemonRepository),
