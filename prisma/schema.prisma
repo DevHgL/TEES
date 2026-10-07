@@ -23,6 +23,12 @@ model Pokemon {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
+  /// GIN no array: atende o filtro por tipo (types @> ARRAY[...]).
+  @@index([types], type: Gin, map: "pokemons_types_gin_idx")
+  /// GIN com trigramas (extensão pg_trgm): atende a busca parcial por nome (ILIKE '%...%').
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "pokemons_name_trgm_idx")
+  /// Ordenação padrão da listagem paginada.
+  @@index([createdAt, id], map: "pokemons_created_at_id_idx")
   @@map("pokemons")
 }
 
@@ -56,6 +62,8 @@ model Capture {
   trainer        Trainer  @relation(fields: [trainerId], references: [id], onDelete: Cascade)
 
   @@index([trainerId])
+  /// Ranking de Pokémons mais capturados (GROUP BY pokedex_number).
+  @@index([pokedexNumber], map: "captures_pokedex_number_idx")
   @@map("captures")
 }
 

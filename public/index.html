@@ -26,6 +26,7 @@
       <button data-tab="pokedex" class="active">Pokédex</button>
       <button data-tab="team">Meu time</button>
       <button data-tab="catalog">Catálogo local</button>
+      <button data-tab="stats">Estatísticas</button>
     </nav>
 
     <main>
@@ -54,6 +55,25 @@
           <span id="page-info" class="muted"></span>
           <button id="next-page" class="ghost">Próxima ›</button>
         </div>
+      </section>
+
+      <section id="tab-stats" hidden>
+        <div id="stats-totals" class="tiles"></div>
+        <div class="panels">
+          <article class="panel">
+            <h2>Mais capturados</h2>
+            <div id="stats-captured"></div>
+          </article>
+          <article class="panel">
+            <h2>Capturas por tipo</h2>
+            <div id="stats-types"></div>
+          </article>
+        </div>
+        <article class="panel wide">
+          <h2>Ranking de treinadores</h2>
+          <p class="muted">Ordenado pela soma dos atributos base do time.</p>
+          <div class="table-wrap"><table id="stats-trainers"></table></div>
+        </article>
       </section>
     </main>
 

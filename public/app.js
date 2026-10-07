@@ -241,19 +241,99 @@ $('#next-page').addEventListener('click', () => {
   loadCatalog();
 });
 
+// ---------- estatísticas ----------
+
+/** Lista de barras horizontais: rótulo (identidade) + barra (magnitude) + valor. */
+function barList(items, { label, value, unit }) {
+  if (!items.length) return '<p class="muted">Nenhuma captura ainda.</p>';
+  const max = Math.max(...items.map(value));
+  return `<ul class="bars">${items
+    .map((item) => {
+      const v = value(item);
+      const text = `${v} ${v === 1 ? unit[0] : unit[1]}`;
+      return `<li title="${escapeHtml(item.name ?? item.type)}: ${text}">
+        <span class="bar-label">${label(item)}</span>
+        <span class="bar-track"><span class="bar-fill" style="width:${(v / max) * 100}%"></span></span>
+        <span class="bar-value">${v}</span>
+      </li>`;
+    })
+    .join('')}</ul>`;
+}
+
+async function loadStats() {
+  try {
+    const s = await api('/stats');
+    const t = s.totals;
+    const fmt = (n) => n.toLocaleString('pt-BR');
+
+    $('#stats-totals').innerHTML = [
+      ['Treinadores', fmt(t.trainers)],
+      ['Capturas', fmt(t.captures)],
+      ['Média por time', `${fmt(t.averageTeamSize)} / 6`],
+      ['Catálogo local', fmt(t.catalogPokemons)],
+      ['Em cache (PokéAPI)', fmt(t.cachedPokedexEntries)],
+    ]
+      .map(
+        ([label, value]) =>
+          `<div class="tile"><span>${label}</span><strong>${value}</strong></div>`,
+      )
+      .join('');
+
+    $('#stats-captured').innerHTML = barList(s.mostCaptured, {
+      label: (p) =>
+        `${p.imageUrl ? `<img src="${escapeHtml(p.imageUrl)}" alt="" />` : ''}${escapeHtml(p.name)}`,
+      value: (p) => p.timesCaptured,
+      unit: ['captura', 'capturas'],
+    });
+
+    $('#stats-types').innerHTML = barList(s.capturesByType, {
+      label: (row) => `<span class="type ${escapeHtml(row.type)}">${escapeHtml(row.type)}</span>`,
+      value: (row) => row.count,
+      unit: ['Pokémon', 'Pokémons'],
+    });
+
+    $('#stats-trainers').innerHTML = s.topTrainers.length
+      ? `<thead><tr><th>#</th><th>Treinador</th><th class="num">Time</th><th class="num">Soma dos atributos</th></tr></thead>
+         <tbody>${s.topTrainers
+           .map(
+             (tr, i) =>
+               `<tr><td>${i + 1}º</td><td>${escapeHtml(tr.name)}</td><td class="num">${tr.teamSize} / 6</td><td class="num">${fmt(tr.totalBaseStats)}</td></tr>`,
+           )
+           .join('')}</tbody>`
+      : '<tbody><tr><td class="muted">Nenhum treinador cadastrado.</td></tr></tbody>';
+  } catch (err) {
+    $('#stats-totals').innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
+  }
+}
+
 // ---------- abas ----------
 
+const TAB_LOADERS = { team: loadTeam, catalog: loadCatalog, stats: loadStats };
+
+function openTab(tab) {
+  if (!document.getElementById(`tab-${tab}`)) tab = 'pokedex';
+  document.querySelectorAll('.tabs button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.tab === tab);
+    if (b.dataset.tab === tab) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+  document.querySelectorAll('main > section').forEach((s) => {
+    s.hidden = s.id !== `tab-${tab}`;
+  });
+  TAB_LOADERS[tab]?.();
+}
+
+// A aba aberta fica na URL (#stats, #team...), então recarregar a página mantém a aba.
 document.querySelectorAll('.tabs button').forEach((btn) => {
   btn.addEventListener('click', () => {
-    document
-      .querySelectorAll('.tabs button')
-      .forEach((b) => b.classList.toggle('active', b === btn));
-    document.querySelectorAll('main > section').forEach((s) => {
-      s.hidden = s.id !== `tab-${btn.dataset.tab}`;
-    });
-    if (btn.dataset.tab === 'team') loadTeam();
-    if (btn.dataset.tab === 'catalog') loadCatalog();
+    history.replaceState(null, '', `#${btn.dataset.tab}`);
+    openTab(btn.dataset.tab);
   });
 });
 
-loadTrainers().catch((err) => toast(err.message, true));
+loadTrainers()
+  .then(() => {
+    // "Meu time" depende do treinador validado; recarrega quando a lista chega.
+    if (!$('#tab-team').hidden) loadTeam();
+  })
+  .catch((err) => toast(err.message, true));
+openTab(location.hash.slice(1));

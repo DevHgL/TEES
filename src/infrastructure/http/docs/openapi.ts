@@ -11,6 +11,7 @@ export const openApiDocument = {
     { name: 'Pokemons', description: 'Catálogo local de espécies de Pokémon' },
     { name: 'Pokedex', description: 'Consulta direta à PokéAPI oficial' },
     { name: 'Trainers', description: 'Treinadores, capturas e time ativo' },
+    { name: 'Stats', description: 'Estatísticas agregadas calculadas no PostgreSQL' },
   ],
   paths: {
     '/pokemons': {
@@ -244,6 +245,20 @@ export const openApiDocument = {
         },
       },
     },
+    '/stats': {
+      get: {
+        tags: ['Stats'],
+        summary: 'Estatísticas gerais (totais, mais capturados, capturas por tipo, ranking)',
+        description:
+          'Calculadas com SQL de agregação (COUNT, AVG, SUM, GROUP BY, LEFT JOIN e unnest) em uma transação REPEATABLE READ, garantindo números consistentes entre si.',
+        responses: {
+          '200': {
+            description: 'Estatísticas.',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Stats' } } },
+          },
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -251,12 +266,12 @@ export const openApiDocument = {
         type: 'object',
         required: ['hp', 'attack', 'defense', 'specialAttack', 'specialDefense', 'speed'],
         properties: {
-          hp: { type: 'integer', minimum: 0 },
-          attack: { type: 'integer', minimum: 0 },
-          defense: { type: 'integer', minimum: 0 },
-          specialAttack: { type: 'integer', minimum: 0 },
-          specialDefense: { type: 'integer', minimum: 0 },
-          speed: { type: 'integer', minimum: 0 },
+          hp: { type: 'integer', minimum: 0, maximum: 255 },
+          attack: { type: 'integer', minimum: 0, maximum: 255 },
+          defense: { type: 'integer', minimum: 0, maximum: 255 },
+          specialAttack: { type: 'integer', minimum: 0, maximum: 255 },
+          specialDefense: { type: 'integer', minimum: 0, maximum: 255 },
+          speed: { type: 'integer', minimum: 0, maximum: 255 },
         },
       },
       Pokemon: {
@@ -285,7 +300,13 @@ export const openApiDocument = {
         required: ['name', 'types', 'baseStats'],
         properties: {
           name: { type: 'string', example: 'Pikachu' },
-          types: { type: 'array', items: { type: 'string' }, example: ['electric'] },
+          types: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            maxItems: 2,
+            example: ['electric'],
+          },
           baseStats: { $ref: '#/components/schemas/PokemonBaseStats' },
           imageUrl: { type: 'string', format: 'uri' },
         },
@@ -357,6 +378,55 @@ export const openApiDocument = {
           size: { type: 'integer', example: 2 },
           maxSize: { type: 'integer', example: 6 },
           pokemons: { type: 'array', items: { $ref: '#/components/schemas/Capture' } },
+        },
+      },
+      Stats: {
+        type: 'object',
+        properties: {
+          totals: {
+            type: 'object',
+            properties: {
+              trainers: { type: 'integer', example: 3 },
+              captures: { type: 'integer', example: 13 },
+              catalogPokemons: { type: 'integer', example: 151 },
+              cachedPokedexEntries: { type: 'integer', example: 8 },
+              averageTeamSize: { type: 'number', example: 4.33 },
+            },
+          },
+          mostCaptured: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                pokedexNumber: { type: 'integer', example: 7 },
+                name: { type: 'string', example: 'squirtle' },
+                imageUrl: { type: 'string', format: 'uri' },
+                timesCaptured: { type: 'integer', example: 2 },
+              },
+            },
+          },
+          capturesByType: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                type: { type: 'string', example: 'water' },
+                count: { type: 'integer', example: 7 },
+              },
+            },
+          },
+          topTrainers: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                name: { type: 'string', example: 'Ash' },
+                teamSize: { type: 'integer', example: 6 },
+                totalBaseStats: { type: 'integer', example: 2301 },
+              },
+            },
+          },
         },
       },
       Error: {

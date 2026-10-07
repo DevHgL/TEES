@@ -1,17 +1,20 @@
 import { z } from 'zod';
 
 export const baseStatsSchema = z.object({
-  hp: z.number().int().nonnegative(),
-  attack: z.number().int().nonnegative(),
-  defense: z.number().int().nonnegative(),
-  specialAttack: z.number().int().nonnegative(),
-  specialDefense: z.number().int().nonnegative(),
-  speed: z.number().int().nonnegative(),
+  hp: z.number().int().min(0).max(255),
+  attack: z.number().int().min(0).max(255),
+  defense: z.number().int().min(0).max(255),
+  specialAttack: z.number().int().min(0).max(255),
+  specialDefense: z.number().int().min(0).max(255),
+  speed: z.number().int().min(0).max(255),
 });
 
 export const createPokemonSchema = z.object({
   name: z.string().trim().min(1, 'name é obrigatório'),
-  types: z.array(z.string().trim().toLowerCase().min(1)).min(1, 'informe ao menos um type'),
+  types: z
+    .array(z.string().trim().toLowerCase().min(1))
+    .min(1, 'informe ao menos um type')
+    .max(2, 'um Pokémon tem no máximo 2 types'),
   baseStats: baseStatsSchema,
   imageUrl: z.string().url().optional(),
 });
