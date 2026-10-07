@@ -29,7 +29,8 @@ export class PrismaPokemonRepository implements IPokemonRepository {
     const [records, total] = await this.prisma.$transaction([
       this.prisma.pokemon.findMany({
         where,
-        orderBy: { createdAt: 'asc' },
+        // id desempata registros com o mesmo createdAt, mantendo a paginação estável.
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),

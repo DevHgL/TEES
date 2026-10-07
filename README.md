@@ -34,7 +34,8 @@ cp .env.example .env
 # 3. Suba o PostgreSQL
 docker compose up -d
 
-# 4. Aplique as migrations e popule o catálogo inicial
+# 4. Aplique as migrations e popule o catálogo
+#    (o seed importa os 151 Pokémons da 1ª geração da PokéAPI; sem internet, usa 3 fixos)
 npm run db:migrate
 npm run db:seed
 
