@@ -1,0 +1,51 @@
+import { Request, Response } from 'express';
+
+import { CapturePokemonUseCase } from '@application/use-cases/trainer/CapturePokemonUseCase';
+import { GetTrainerByIdUseCase } from '@application/use-cases/trainer/GetTrainerByIdUseCase';
+import { GetTrainerTeamUseCase } from '@application/use-cases/trainer/GetTrainerTeamUseCase';
+import { ReleasePokemonUseCase } from '@application/use-cases/trainer/ReleasePokemonUseCase';
+import { Trainer } from '@domain/entities/Trainer';
+
+import { getAuth } from '@infrastructure/http/middlewares/ensureAuthenticated';
+import { toTrainerDTO } from '@infrastructure/http/presenters/trainerPresenter';
+import { captureIdParamSchema } from '@infrastructure/http/validators/auth.schemas';
+import { capturePokemonSchema } from '@infrastructure/http/validators/trainer.schemas';
+
+/** Rotas do treinador autenticado: o ID vem sempre do token, nunca da URL ou do corpo. */
+export class MeController {
+  constructor(
+    private readonly getTrainerByIdUseCase: GetTrainerByIdUseCase,
+    private readonly getTrainerTeamUseCase: GetTrainerTeamUseCase,
+    private readonly capturePokemonUseCase: CapturePokemonUseCase,
+    private readonly releasePokemonUseCase: ReleasePokemonUseCase,
+  ) {}
+
+  profile = async (req: Request, res: Response): Promise<void> => {
+    const trainer = await this.getTrainerByIdUseCase.execute(getAuth(req).trainerId);
+    res.status(200).json(toTrainerDTO(trainer));
+  };
+
+  team = async (req: Request, res: Response): Promise<void> => {
+    const { trainerId } = getAuth(req);
+    const team = await this.getTrainerTeamUseCase.execute(trainerId);
+    res.status(200).json({
+      trainerId,
+      size: team.length,
+      maxSize: Trainer.MAX_TEAM_SIZE,
+      pokemons: team,
+    });
+  };
+
+  catch = async (req: Request, res: Response): Promise<void> => {
+    const { trainerId } = getAuth(req);
+    const { pokemonName, nickname } = capturePokemonSchema.parse(req.body);
+    const capture = await this.capturePokemonUseCase.execute({ trainerId, pokemonName, nickname });
+    res.status(201).json(capture);
+  };
+
+  release = async (req: Request, res: Response): Promise<void> => {
+    const { captureId } = captureIdParamSchema.parse(req.params);
+    await this.releasePokemonUseCase.execute({ trainerId: getAuth(req).trainerId, captureId });
+    res.status(204).send();
+  };
+}

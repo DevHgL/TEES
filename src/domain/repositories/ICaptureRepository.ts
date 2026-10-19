@@ -19,4 +19,6 @@ export interface ICaptureRepository {
   createWithinTeamLimit(data: CreateCaptureData, maxTeamSize: number): Promise<Capture | null>;
   findByTrainerId(trainerId: string): Promise<Capture[]>;
   countByTrainerId(trainerId: string): Promise<number>;
+  findById(id: string): Promise<Capture | null>;
+  delete(id: string): Promise<void>;
 }

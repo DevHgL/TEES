@@ -10,16 +10,30 @@
     <header class="topbar">
       <h1>PokéManager</h1>
       <div class="trainer-bar">
-        <label for="trainer-select">Treinador</label>
-        <select id="trainer-select"></select>
-        <button id="new-trainer-btn" class="ghost">+ Novo</button>
+        <div id="logged-out">
+          <button id="login-btn" class="ghost">Entrar</button>
+          <button id="register-btn" class="ghost">Cadastrar</button>
+        </div>
+        <div id="logged-in" hidden>
+          <span id="user-label"></span>
+          <button id="logout-btn" class="ghost">Sair</button>
+        </div>
       </div>
     </header>
 
-    <form id="trainer-form" class="trainer-form" hidden>
-      <input name="name" placeholder="Nome" required maxlength="100" />
-      <input name="email" type="email" placeholder="E-mail" required />
-      <button type="submit">Cadastrar</button>
+    <form id="auth-form" class="trainer-form" hidden>
+      <input name="name" placeholder="Nome" maxlength="100" autocomplete="name" />
+      <input name="email" type="email" placeholder="E-mail" required autocomplete="email" />
+      <input
+        name="password"
+        type="password"
+        placeholder="Senha"
+        required
+        maxlength="72"
+        autocomplete="current-password"
+      />
+      <button type="submit" id="auth-submit">Entrar</button>
+      <span id="auth-hint" class="muted"></span>
     </form>
 
     <nav class="tabs">
@@ -27,6 +41,7 @@
       <button data-tab="team">Meu time</button>
       <button data-tab="catalog">Catálogo local</button>
       <button data-tab="stats">Estatísticas</button>
+      <button data-tab="admin" id="admin-tab-btn" hidden>Admin</button>
     </nav>
 
     <main>
@@ -73,6 +88,17 @@
           <h2>Ranking de treinadores</h2>
           <p class="muted">Ordenado pela soma dos atributos base do time.</p>
           <div class="table-wrap"><table id="stats-trainers"></table></div>
+        </article>
+      </section>
+
+      <section id="tab-admin" hidden>
+        <article class="panel wide">
+          <h2>Perfis de acesso</h2>
+          <p class="muted">
+            GYM_LEADER e ADMIN alteram perfis. Ninguém altera o próprio perfil, e só ADMIN concede
+            ou retira o papel ADMIN.
+          </p>
+          <div class="table-wrap"><table id="admin-trainers"></table></div>
         </article>
       </section>
     </main>

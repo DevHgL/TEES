@@ -9,15 +9,70 @@ const STAT_LABELS = {
 };
 
 const $ = (sel) => document.querySelector(sel);
-let currentTrainerId = localStorage.getItem('trainerId');
+
+// ---------- sessão (JWT + refresh token) ----------
+
+const SESSION_KEY = 'pokemanager-session';
+
+function loadSession() {
+  try {
+    return JSON.parse(localStorage.getItem(SESSION_KEY)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+let session = loadSession();
+
+function saveSession(next) {
+  session = next;
+  try {
+    if (next) localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+    else localStorage.removeItem(SESSION_KEY);
+  } catch {
+    // Armazenamento indisponível (ex: navegação privada): a sessão vale só nesta aba.
+  }
+  renderSession();
+}
+
+const isLoggedIn = () => Boolean(session?.accessToken);
+const canManageRoles = () => ['GYM_LEADER', 'ADMIN'].includes(session?.trainer?.role);
+
+// Uma única renovação por vez: se várias requisições recebem 401 juntas, todas esperam
+// o mesmo refresh. Reenviar o mesmo refresh token seria tratado pelo servidor como roubo.
+let refreshing = null;
+
+async function refreshSession() {
+  refreshing ??= (async () => {
+    const res = await fetch(`${API}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: session.refreshToken }),
+    });
+    if (!res.ok) {
+      saveSession(null);
+      throw new Error('Sua sessão expirou. Entre novamente.');
+    }
+    const tokens = await res.json();
+    saveSession({ ...session, ...tokens });
+  })().finally(() => (refreshing = null));
+  return refreshing;
+}
 
 // ---------- helpers ----------
 
-async function api(path, options = {}) {
-  const res = await fetch(API + path, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+async function api(path, options = {}, retry = true) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+
+  const res = await fetch(API + path, { ...options, headers });
+
+  // Access token expirado: renova com o refresh token e repete a requisição uma vez.
+  if (res.status === 401 && retry && session?.refreshToken) {
+    await refreshSession();
+    return api(path, options, false);
+  }
+
   const body = res.status === 204 ? null : await res.json();
   if (!res.ok) {
     const details = body?.errors?.map((e) => `${e.path}: ${e.message}`).join('; ');
@@ -68,60 +123,75 @@ function pokemonCard(p, { big = false, subtitle = '', action = '' } = {}) {
   </article>`;
 }
 
-// ---------- treinadores ----------
+// ---------- login / cadastro ----------
 
-async function loadTrainers() {
-  const trainers = await api('/trainers');
-  const select = $('#trainer-select');
+let authMode = 'login';
 
-  if (!trainers.some((t) => t.id === currentTrainerId)) {
-    currentTrainerId = trainers[0]?.id ?? null;
+function renderSession() {
+  $('#logged-out').hidden = isLoggedIn();
+  $('#logged-in').hidden = !isLoggedIn();
+  $('#admin-tab-btn').hidden = !canManageRoles();
+  if (isLoggedIn()) {
+    const { name, role } = session.trainer;
+    $('#user-label').textContent = `${name} · ${role}`;
+    $('#auth-form').hidden = true;
   }
-
-  select.innerHTML = trainers.length
-    ? trainers
-        .map(
-          (t) =>
-            `<option value="${t.id}" ${t.id === currentTrainerId ? 'selected' : ''}>${escapeHtml(t.name)}</option>`,
-        )
-        .join('')
-    : '<option value="">Nenhum treinador</option>';
-
-  saveTrainer(currentTrainerId);
-  if (!trainers.length) $('#trainer-form').hidden = false;
+  const captureBtn = $('#capture-btn');
+  if (captureBtn) captureBtn.disabled = !isLoggedIn();
 }
 
-function saveTrainer(id) {
-  currentTrainerId = id;
-  if (id) localStorage.setItem('trainerId', id);
-  else localStorage.removeItem('trainerId');
+function openAuthForm(mode) {
+  const form = $('#auth-form');
+  if (!form.hidden && authMode === mode) {
+    form.hidden = true;
+    return;
+  }
+  authMode = mode;
+  form.hidden = false;
+  form.name.hidden = mode !== 'register';
+  form.name.required = mode === 'register';
+  form.password.autocomplete = mode === 'register' ? 'new-password' : 'current-password';
+  $('#auth-submit').textContent = mode === 'register' ? 'Criar conta' : 'Entrar';
+  $('#auth-hint').textContent =
+    mode === 'register' ? 'Senha: 8+ caracteres, com letra e número.' : '';
+  (mode === 'register' ? form.name : form.email).focus();
 }
 
-$('#trainer-select').addEventListener('change', (e) => {
-  saveTrainer(e.target.value);
-  if (!$('#tab-team').hidden) loadTeam();
-});
+$('#login-btn').addEventListener('click', () => openAuthForm('login'));
+$('#register-btn').addEventListener('click', () => openAuthForm('register'));
 
-$('#new-trainer-btn').addEventListener('click', () => {
-  $('#trainer-form').hidden = !$('#trainer-form').hidden;
-});
-
-$('#trainer-form').addEventListener('submit', async (e) => {
+$('#auth-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;
+  const credentials = { email: form.email.value, password: form.password.value };
   try {
-    const trainer = await api('/trainers', {
-      method: 'POST',
-      body: JSON.stringify({ name: form.name.value, email: form.email.value }),
-    });
-    saveTrainer(trainer.id);
+    if (authMode === 'register') {
+      await api('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ name: form.name.value, ...credentials }),
+      });
+    }
+    const login = await api('/auth/login', { method: 'POST', body: JSON.stringify(credentials) });
+    saveSession(login);
     form.reset();
-    form.hidden = true;
-    await loadTrainers();
-    toast(`Treinador ${trainer.name} cadastrado!`);
+    toast(`Bem-vindo(a), ${login.trainer.name}!`);
+    reloadCurrentTab();
   } catch (err) {
     toast(err.message, true);
   }
+});
+
+$('#logout-btn').addEventListener('click', async () => {
+  const refreshToken = session?.refreshToken;
+  saveSession(null);
+  if (refreshToken) {
+    await api('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }).catch(
+      () => {},
+    );
+  }
+  toast('Você saiu.');
+  if (!$('#tab-admin').hidden) openTab('pokedex');
+  else reloadCurrentTab();
 });
 
 // ---------- pokédex ----------
@@ -137,7 +207,8 @@ $('#search-form').addEventListener('submit', async (e) => {
     out.innerHTML = pokemonCard(p, {
       big: true,
       subtitle: `#${p.pokedexNumber} · ${p.height} m · ${p.weight} kg`,
-      action: `<button id="capture-btn" ${currentTrainerId ? '' : 'disabled'}>Capturar</button>`,
+      action: `<button id="capture-btn" ${isLoggedIn() ? '' : 'disabled'}>Capturar</button>
+        ${isLoggedIn() ? '' : '<span class="muted">Entre para capturar.</span>'}`,
     });
     $('#capture-btn').addEventListener('click', () => capture(p.name));
   } catch (err) {
@@ -148,7 +219,7 @@ $('#search-form').addEventListener('submit', async (e) => {
 async function capture(pokemonName) {
   const nickname = prompt('Apelido (opcional):')?.trim();
   try {
-    const c = await api(`/trainers/${currentTrainerId}/captures`, {
+    const c = await api('/me/team/catch', {
       method: 'POST',
       body: JSON.stringify({ pokemonName, ...(nickname ? { nickname } : {}) }),
     });
@@ -164,14 +235,14 @@ async function loadTeam() {
   const grid = $('#team-grid');
   const summary = $('#team-summary');
 
-  if (!currentTrainerId) {
-    summary.textContent = 'Cadastre ou selecione um treinador.';
+  if (!isLoggedIn()) {
+    summary.textContent = 'Entre na sua conta para ver o seu time.';
     grid.innerHTML = '';
     return;
   }
 
   try {
-    const team = await api(`/trainers/${currentTrainerId}/team`);
+    const team = await api('/me/team');
     summary.textContent = `${team.size} de ${team.maxSize} Pokémons no time ativo.`;
     const empty = Array.from(
       { length: team.maxSize - team.size },
@@ -181,6 +252,7 @@ async function loadTeam() {
       .map((p) =>
         pokemonCard(p, {
           subtitle: `#${p.pokedexNumber}${p.nickname ? ` · ${escapeHtml(p.name)}` : ''}`,
+          action: `<button class="ghost release-btn" data-id="${p.id}" data-name="${escapeHtml(p.nickname || p.name)}">Soltar</button>`,
         }),
       )
       .concat(empty)
@@ -190,6 +262,18 @@ async function loadTeam() {
     grid.innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
   }
 }
+
+$('#team-grid').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.release-btn');
+  if (!btn || !confirm(`Soltar ${btn.dataset.name}? Isso não pode ser desfeito.`)) return;
+  try {
+    await api(`/me/team/${btn.dataset.id}`, { method: 'DELETE' });
+    toast(`${btn.dataset.name} foi solto.`);
+    loadTeam();
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
 
 // ---------- catálogo local ----------
 
@@ -306,9 +390,63 @@ async function loadStats() {
   }
 }
 
+// ---------- admin (RBAC) ----------
+
+const ROLES = ['TRAINER', 'GYM_LEADER', 'ADMIN'];
+
+async function loadAdmin() {
+  const table = $('#admin-trainers');
+  if (!canManageRoles()) {
+    table.innerHTML =
+      '<tbody><tr><td class="muted">Acesso restrito a GYM_LEADER e ADMIN.</td></tr></tbody>';
+    return;
+  }
+  try {
+    const trainers = await api('/trainers');
+    const me = session.trainer;
+    table.innerHTML = `<thead><tr><th>Treinador</th><th>E-mail</th><th>Perfil</th></tr></thead>
+      <tbody>${trainers
+        .map((t) => {
+          // A interface só esconde o que não pode; quem garante a regra é o servidor.
+          const locked = t.id === me.id || (t.role === 'ADMIN' && me.role !== 'ADMIN');
+          const options = ROLES.filter(
+            (r) => r !== 'ADMIN' || me.role === 'ADMIN' || t.role === 'ADMIN',
+          )
+            .map((r) => `<option ${r === t.role ? 'selected' : ''}>${r}</option>`)
+            .join('');
+          return `<tr><td>${escapeHtml(t.name)}${t.id === me.id ? ' (você)' : ''}</td>
+            <td>${escapeHtml(t.email)}</td>
+            <td><select class="role-select" data-id="${t.id}" ${locked ? 'disabled' : ''}>${options}</select></td></tr>`;
+        })
+        .join('')}</tbody>`;
+  } catch (err) {
+    table.innerHTML = `<tbody><tr><td class="error">${escapeHtml(err.message)}</td></tr></tbody>`;
+  }
+}
+
+$('#admin-trainers').addEventListener('change', async (e) => {
+  const select = e.target.closest('.role-select');
+  if (!select) return;
+  try {
+    const t = await api(`/trainers/${select.dataset.id}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role: select.value }),
+    });
+    toast(`${t.name} agora é ${t.role}.`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+  loadAdmin();
+});
+
 // ---------- abas ----------
 
-const TAB_LOADERS = { team: loadTeam, catalog: loadCatalog, stats: loadStats };
+const TAB_LOADERS = { team: loadTeam, catalog: loadCatalog, stats: loadStats, admin: loadAdmin };
+
+function reloadCurrentTab() {
+  const active = document.querySelector('.tabs button.active')?.dataset.tab;
+  if (active) TAB_LOADERS[active]?.();
+}
 
 function openTab(tab) {
   if (!document.getElementById(`tab-${tab}`)) tab = 'pokedex';
@@ -330,10 +468,5 @@ document.querySelectorAll('.tabs button').forEach((btn) => {
   });
 });
 
-loadTrainers()
-  .then(() => {
-    // "Meu time" depende do treinador validado; recarrega quando a lista chega.
-    if (!$('#tab-team').hidden) loadTeam();
-  })
-  .catch((err) => toast(err.message, true));
+renderSession();
 openTab(location.hash.slice(1));

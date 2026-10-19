@@ -3,8 +3,8 @@
 API RESTful para gerenciamento de Treinadores e Pokémons, desenvolvida na disciplina
 **Desenvolvimento de APIs Modernas** (UFF).
 
-> **Status atual: Entrega 2 — Persistência Relacional, Validação Zod e Integração PokéAPI.**
-> Autenticação, Docker completo e CI/CD chegam nas próximas entregas.
+> **Status atual: Entrega 3 — Autenticação JWT, Autorização RBAC e Hardening OWASP.**
+> Docker completo, testes automatizados, CI/CD e deploy chegam na Entrega 4.
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -14,6 +14,8 @@ API RESTful para gerenciamento de Treinadores e Pokémons, desenvolvida na disci
 - PostgreSQL + Prisma ORM 7 (driver adapter `@prisma/adapter-pg`)
 - Zod (validação de payloads e da resposta da PokéAPI)
 - Fetch API nativa para consumo da [PokéAPI](https://pokeapi.co)
+- JWT (`jsonwebtoken`) + refresh token com rotação, senhas com bcrypt (`bcryptjs`)
+- Helmet, CORS e Rate Limiting (`express-rate-limit`)
 - Swagger / OpenAPI 3.0
 - Frontend estático (HTML/CSS/JS puro) servido pela própria API
 
@@ -34,8 +36,9 @@ cp .env.example .env
 # 3. Suba o PostgreSQL
 docker compose up -d
 
-# 4. Aplique as migrations e popule o catálogo
-#    (o seed importa os 151 Pokémons da 1ª geração da PokéAPI; sem internet, usa 3 fixos)
+# 4. Aplique as migrations e popule o banco
+#    (o seed importa os 151 Pokémons da 1ª geração da PokéAPI — sem internet, usa 3 fixos —
+#     e cria as contas de demonstração abaixo)
 npm run db:migrate
 npm run db:seed
 
@@ -45,6 +48,20 @@ npm run dev
 
 - Frontend: `http://localhost:3000`
 - Swagger UI: `http://localhost:3000/api/docs`
+
+**Contas de demonstração** (criadas pelo seed quando `SEED_DEMO_PASSWORD` está definida — não
+defina essa variável em produção):
+
+| E-mail                  | Papel      | Senha        |
+| ----------------------- | ---------- | ------------ |
+| `admin@pokemanager.dev` | ADMIN      | `pokemon123` |
+| `brock@pokemanager.dev` | GYM_LEADER | `pokemon123` |
+| `red@pokemanager.dev`   | TRAINER    | `pokemon123` |
+
+O `.env` é validado com Zod na inicialização: se faltar uma variável obrigatória (como
+`DATABASE_URL`) ou se o `JWT_SECRET` tiver menos de 32 caracteres, o servidor não sobe e mostra
+o que corrigir. Para gerar um segredo:
+`node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
 
 ### Outros scripts
 
@@ -61,26 +78,43 @@ npm run typecheck   # checagem de tipos sem emitir arquivos
 
 ## 📚 Contrato REST
 
-### Catálogo local (Entrega 1, agora persistido no PostgreSQL)
+Legenda de acesso: 🌐 público · 🔑 autenticado (`Authorization: Bearer <token>`) ·
+🛡️ apenas `GYM_LEADER`/`ADMIN`.
 
-| Método | Rota                   | Descrição                                    |
-| ------ | ---------------------- | -------------------------------------------- |
-| GET    | `/api/v1/pokemons`     | Lista paginada (`?page=&limit=&name=&type=`) |
-| GET    | `/api/v1/pokemons/:id` | Busca uma espécie por ID                     |
-| POST   | `/api/v1/pokemons`     | Cadastra um Pokémon manualmente              |
-| PUT    | `/api/v1/pokemons/:id` | Atualiza os dados de um Pokémon              |
-| DELETE | `/api/v1/pokemons/:id` | Remove um Pokémon do catálogo                |
+### Autenticação e treinador logado (Entrega 3)
+
+| Método | Rota                         | Acesso | Descrição                                       |
+| ------ | ---------------------------- | ------ | ----------------------------------------------- |
+| POST   | `/api/v1/auth/register`      | 🌐     | Cadastro com senha criptografada (bcrypt)       |
+| POST   | `/api/v1/auth/login`         | 🌐     | Emite o JWT (15 min) e o refresh token (7 dias) |
+| POST   | `/api/v1/auth/refresh`       | 🌐     | Troca o refresh token por um novo par (rotação) |
+| POST   | `/api/v1/auth/logout`        | 🌐     | Revoga o refresh token                          |
+| GET    | `/api/v1/me`                 | 🔑     | Dados do treinador autenticado                  |
+| GET    | `/api/v1/me/team`            | 🔑     | Time do treinador autenticado                   |
+| POST   | `/api/v1/me/team/catch`      | 🔑     | Captura com o ID do treinador extraído do token |
+| DELETE | `/api/v1/me/team/:captureId` | 🔑     | Solta um Pokémon (só o próprio dono)            |
+| PATCH  | `/api/v1/trainers/:id/role`  | 🛡️     | Altera o perfil de acesso (RBAC)                |
+
+### Catálogo local (Entrega 1, persistido no PostgreSQL)
+
+| Método | Rota                   | Acesso | Descrição                                    |
+| ------ | ---------------------- | ------ | -------------------------------------------- |
+| GET    | `/api/v1/pokemons`     | 🌐     | Lista paginada (`?page=&limit=&name=&type=`) |
+| GET    | `/api/v1/pokemons/:id` | 🌐     | Busca uma espécie por ID                     |
+| POST   | `/api/v1/pokemons`     | 🛡️     | Cadastra um Pokémon manualmente              |
+| PUT    | `/api/v1/pokemons/:id` | 🛡️     | Atualiza os dados de um Pokémon              |
+| DELETE | `/api/v1/pokemons/:id` | 🛡️     | Remove um Pokémon do catálogo                |
 
 ### Pokédex, Treinadores e Capturas (Entrega 2)
 
-| Método | Rota                                   | Descrição                                            |
-| ------ | -------------------------------------- | ---------------------------------------------------- |
-| GET    | `/api/v1/pokedex/search?name=pikachu`  | Consulta direto na PokéAPI e retorna o DTO formatado |
-| GET    | `/api/v1/trainers`                     | Lista treinadores (usado pelo frontend)              |
-| POST   | `/api/v1/trainers`                     | Cadastra um treinador (`name`, `email`)              |
-| POST   | `/api/v1/trainers/:trainerId/captures` | Captura um Pokémon (`pokemonName`, `nickname?`)      |
-| GET    | `/api/v1/trainers/:trainerId/team`     | Lista o time atual do treinador                      |
-| GET    | `/api/v1/stats`                        | Estatísticas agregadas (totais, rankings, por tipo)  |
+| Método | Rota                                   | Acesso | Descrição                                            |
+| ------ | -------------------------------------- | ------ | ---------------------------------------------------- |
+| GET    | `/api/v1/pokedex/search?name=pikachu`  | 🌐     | Consulta direto na PokéAPI e retorna o DTO formatado |
+| GET    | `/api/v1/trainers`                     | 🛡️     | Lista treinadores (com e-mail e perfil)              |
+| POST   | `/api/v1/trainers`                     | 🌐     | Cadastra um treinador (mesmo corpo do register)      |
+| POST   | `/api/v1/trainers/:trainerId/captures` | 🔑     | Captura para o próprio time (ou qualquer, se ADMIN)  |
+| GET    | `/api/v1/trainers/:trainerId/team`     | 🌐     | Lista o time atual do treinador                      |
+| GET    | `/api/v1/stats`                        | 🌐     | Estatísticas agregadas (totais, rankings, por tipo)  |
 
 **Regra de negócio:** o time ativo comporta no máximo **6 Pokémons**; a 7ª captura retorna `422`.
 
@@ -131,6 +165,32 @@ número da Pokédex positivo.
 transação `REPEATABLE READ` para que os números sejam consistentes entre si. O frontend mostra
 isso na aba **Estatísticas**.
 
+### Segurança (Entrega 3)
+
+- **Senhas:** bcrypt com custo configurável (`BCRYPT_ROUNDS`, padrão 10). A senha exige 8 a 72
+  caracteres (72 é o limite do bcrypt), com letra e número.
+- **JWT:** HS256 com `issuer`, `audience` e validade de 15 minutos. Na verificação, o algoritmo é
+  fixo, o que bloqueia tokens adulterados com `alg: none`.
+- **Refresh token:** valor aleatório (não é JWT), guardado no banco só como hash SHA-256. Cada
+  uso gera um novo e revoga o anterior; se um token já revogado for reapresentado (sinal de
+  roubo), todas as sessões do treinador são encerradas.
+- **Login:** a mensagem de erro é a mesma para e-mail inexistente e senha errada, e o bcrypt roda
+  mesmo quando o e-mail não existe, para que o tempo de resposta não revele quem tem conta.
+- **RBAC:** `ensureRole('GYM_LEADER', 'ADMIN')` protege as rotas administrativas. Na troca de
+  perfil, ninguém altera o próprio papel e só `ADMIN` concede ou retira `ADMIN` — regras
+  checadas no caso de uso, com o papel atual lido do banco (não do token).
+- **Controle de acesso por dono:** só o dono solta um Pokémon; capturar no time de outro
+  treinador pela rota `/trainers/:trainerId/captures` é proibido (exceto para `ADMIN`).
+- **DTOs:** os treinadores passam pelo `toTrainerDTO` antes de virar JSON, então o hash da senha
+  nunca é serializado.
+- **Helmet:** CSP (só scripts da própria origem; imagens da PokéAPI liberadas), `X-Frame-Options`,
+  `nosniff`, HSTS em produção, entre outros.
+- **CORS:** apenas as origens em `CORS_ORIGINS` (o frontend em `/` é a mesma origem).
+- **Rate limiting:** 300 requisições por IP a cada 15 minutos na API e só 5 tentativas de login
+  **com falha** por IP no mesmo período (tentativas certas não contam).
+- **Outros:** corpo JSON limitado a 10 KB, rotas inexistentes respondem 404 em JSON e o `.env` é
+  validado com Zod no startup.
+
 ### Tratamento de erros
 
 Todas as exceções de negócio estendem `AppError` (`src/domain/errors/`) e carregam o status HTTP.
@@ -139,9 +199,13 @@ O middleware global (`errorHandler`) converte:
 | Origem                                                                      | Status |
 | --------------------------------------------------------------------------- | ------ |
 | `ZodError` / JSON malformado                                                | 400    |
+| `InvalidCredentialsError`, `UnauthorizedError` (token ausente/inválido)     | 401    |
+| `ForbiddenError` (papel ou dono incorreto)                                  | 403    |
 | `PokemonNotFoundError`, `TrainerNotFoundError`, `PokedexEntryNotFoundError` | 404    |
+| `CaptureNotFoundError`                                                      | 404    |
 | `TrainerEmailAlreadyInUseError`                                             | 409    |
 | `TeamFullError`                                                             | 422    |
+| Rate limit excedido                                                         | 429    |
 | `PokeApiUnavailableError`                                                   | 502    |
 
 ## 🏗️ Arquitetura
@@ -149,8 +213,8 @@ O middleware global (`errorHandler`) converte:
 ```text
 src/
   domain/          # Entidades, interfaces de repositório e erros de domínio
-  application/     # Casos de uso (regras de negócio, independentes de framework)
-  infrastructure/  # Prisma (repositórios), providers/ (PokéAPI), HTTP (Express), Swagger
+  application/     # Casos de uso, portas (IPasswordHasher, ITokenService) e serviços
+  infrastructure/  # Prisma (repositórios), providers/ (PokéAPI, bcrypt, JWT), HTTP, Swagger
   main/            # Composição da aplicação (DI manual, app.ts, server.ts)
 prisma/            # schema.prisma, migrations e seed
 public/            # Frontend estático

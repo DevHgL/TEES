@@ -32,15 +32,40 @@ model Pokemon {
   @@map("pokemons")
 }
 
+enum Role {
+  TRAINER
+  GYM_LEADER
+  ADMIN
+}
+
 model Trainer {
-  id        String    @id @default(uuid()) @db.Uuid
-  name      String
-  email     String    @unique
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  captures  Capture[]
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  email         String         @unique
+  /// Hash bcrypt. Nulo apenas para treinadores criados antes da Entrega 3 (sem login).
+  passwordHash  String?        @map("password_hash")
+  role          Role           @default(TRAINER)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  captures      Capture[]
+  refreshTokens RefreshToken[]
 
   @@map("trainers")
+}
+
+/// Refresh tokens opacos. Só o hash SHA-256 é guardado: um vazamento do banco não
+/// permite usar os tokens. Cada uso gera um novo token e revoga o anterior (rotação).
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  trainerId String    @map("trainer_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  trainer   Trainer   @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+
+  @@index([trainerId])
+  @@map("refresh_tokens")
 }
 
 /// Pokémon capturado por um treinador, com os dados oficiais obtidos da PokéAPI.

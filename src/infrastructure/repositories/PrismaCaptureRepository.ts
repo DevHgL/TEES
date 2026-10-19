@@ -52,6 +52,15 @@ export class PrismaCaptureRepository implements ICaptureRepository {
   async countByTrainerId(trainerId: string): Promise<number> {
     return this.prisma.capture.count({ where: { trainerId } });
   }
+
+  async findById(id: string): Promise<Capture | null> {
+    const record = await this.prisma.capture.findUnique({ where: { id } });
+    return record ? toDomain(record) : null;
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.prisma.capture.delete({ where: { id } });
+  }
 }
 
 function toDomain(record: CaptureRecord): Capture {

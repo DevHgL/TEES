@@ -1,8 +1,10 @@
-import { Trainer } from '@domain/entities/Trainer';
+import { Role, Trainer } from '@domain/entities/Trainer';
 
 export interface CreateTrainerData {
   name: string;
   email: string;
+  passwordHash: string;
+  role?: Role;
 }
 
 export interface ITrainerRepository {
@@ -10,4 +12,5 @@ export interface ITrainerRepository {
   findById(id: string): Promise<Trainer | null>;
   findByEmail(email: string): Promise<Trainer | null>;
   create(data: CreateTrainerData): Promise<Trainer>;
+  updateRole(id: string, role: Role): Promise<Trainer>;
 }

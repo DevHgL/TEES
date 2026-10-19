@@ -1,6 +1,7 @@
 import 'dotenv/config';
 
 import { PrismaPg } from '@prisma/adapter-pg';
+import bcrypt from 'bcryptjs';
 
 import { PokedexEntry } from '../src/domain/gateways/IPokeApiGateway';
 import { PrismaClient } from '../src/infrastructure/database/generated/prisma/client';
@@ -56,7 +57,7 @@ async function fetchFromPokeApi(): Promise<SeedPokemon[]> {
   return result;
 }
 
-async function main(): Promise<void> {
+async function seedCatalog(): Promise<void> {
   let pokemons: SeedPokemon[];
 
   try {
@@ -90,6 +91,48 @@ async function main(): Promise<void> {
   });
 
   console.log(`Seed concluído: ${missing.length} Pokémons inseridos no catálogo.`);
+}
+
+/**
+ * Contas de demonstração, uma por papel, todas com a senha SEED_DEMO_PASSWORD.
+ * Só roda quando essa variável existe — em produção, não defina SEED_DEMO_PASSWORD.
+ */
+async function seedDemoAccounts(): Promise<void> {
+  const password = process.env['SEED_DEMO_PASSWORD'];
+
+  if (!password) {
+    console.log('SEED_DEMO_PASSWORD não definida — contas de demonstração ignoradas.');
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, Number(process.env['BCRYPT_ROUNDS']) || 10);
+  const accounts = [
+    {
+      name: 'Professor Carvalho',
+      email: process.env['SEED_ADMIN_EMAIL'] || 'admin@pokemanager.dev',
+      role: 'ADMIN' as const,
+    },
+    { name: 'Brock', email: 'brock@pokemanager.dev', role: 'GYM_LEADER' as const },
+    { name: 'Red', email: 'red@pokemanager.dev', role: 'TRAINER' as const },
+  ];
+
+  for (const account of accounts) {
+    // Idempotente: não sobrescreve uma conta que já exista.
+    await prisma.trainer.upsert({
+      where: { email: account.email },
+      create: { ...account, passwordHash },
+      update: {},
+    });
+  }
+
+  console.log(
+    `Contas de demonstração: ${accounts.map((a) => `${a.email} (${a.role})`).join(', ')}.`,
+  );
+}
+
+async function main(): Promise<void> {
+  await seedCatalog();
+  await seedDemoAccounts();
 }
 
 main()

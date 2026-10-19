@@ -1,4 +1,4 @@
-import { Trainer } from '@domain/entities/Trainer';
+import { Role, Trainer } from '@domain/entities/Trainer';
 import { TrainerEmailAlreadyInUseError } from '@domain/errors/TrainerEmailAlreadyInUseError';
 import { CreateTrainerData, ITrainerRepository } from '@domain/repositories/ITrainerRepository';
 
@@ -38,6 +38,11 @@ export class PrismaTrainerRepository implements ITrainerRepository {
       throw err;
     }
   }
+
+  async updateRole(id: string, role: Role): Promise<Trainer> {
+    const record = await this.prisma.trainer.update({ where: { id }, data: { role } });
+    return toDomain(record);
+  }
 }
 
 function toDomain(record: TrainerRecord): Trainer {
@@ -45,6 +50,8 @@ function toDomain(record: TrainerRecord): Trainer {
     id: record.id,
     name: record.name,
     email: record.email,
+    passwordHash: record.passwordHash ?? undefined,
+    role: record.role,
     createdAt: record.createdAt,
   });
 }

@@ -2,12 +2,14 @@ export const openApiDocument = {
   openapi: '3.0.3',
   info: {
     title: 'PokéManager API',
-    version: '1.0.0',
+    version: '3.0.0',
     description:
-      'PokéManager API — catálogo local persistido em PostgreSQL (Prisma), treinadores, capturas e integração com a PokéAPI (Entrega 2).',
+      'PokéManager API — catálogo em PostgreSQL (Prisma), treinadores, capturas, integração com a PokéAPI e autenticação JWT com RBAC (Entrega 3).\n\n**Como autenticar:** faça `POST /auth/login`, copie o `accessToken` e clique em **Authorize**. Contas de demonstração (após `npm run db:seed`): `admin@pokemanager.dev` (ADMIN), `brock@pokemanager.dev` (GYM_LEADER) e `red@pokemanager.dev` (TRAINER), todas com a senha `pokemon123`.',
   },
   servers: [{ url: '/api/v1' }],
   tags: [
+    { name: 'Auth', description: 'Cadastro, login, renovação e encerramento de sessão' },
+    { name: 'Me', description: 'Rotas do treinador autenticado (ID extraído do token JWT)' },
     { name: 'Pokemons', description: 'Catálogo local de espécies de Pokémon' },
     { name: 'Pokedex', description: 'Consulta direta à PokéAPI oficial' },
     { name: 'Trainers', description: 'Treinadores, capturas e time ativo' },
@@ -58,7 +60,8 @@ export const openApiDocument = {
       },
       post: {
         tags: ['Pokemons'],
-        summary: 'Cadastra um Pokémon manualmente no catálogo local',
+        summary: 'Cadastra um Pokémon manualmente no catálogo local (GYM_LEADER/ADMIN)',
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -73,6 +76,8 @@ export const openApiDocument = {
             },
           },
           '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
         },
       },
     },
@@ -100,7 +105,8 @@ export const openApiDocument = {
       },
       put: {
         tags: ['Pokemons'],
-        summary: 'Atualiza os dados de um Pokémon do catálogo local',
+        summary: 'Atualiza os dados de um Pokémon do catálogo local (GYM_LEADER/ADMIN)',
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -115,14 +121,19 @@ export const openApiDocument = {
             },
           },
           '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
           '404': { $ref: '#/components/responses/NotFound' },
         },
       },
       delete: {
         tags: ['Pokemons'],
-        summary: 'Remove um Pokémon do catálogo local',
+        summary: 'Remove um Pokémon do catálogo local (GYM_LEADER/ADMIN)',
+        security: [{ bearerAuth: [] }],
         responses: {
           '204': { description: 'Pokémon removido.' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
           '404': { $ref: '#/components/responses/NotFound' },
         },
       },
@@ -156,7 +167,8 @@ export const openApiDocument = {
     '/trainers': {
       get: {
         tags: ['Trainers'],
-        summary: 'Lista os treinadores cadastrados',
+        summary: 'Lista os treinadores cadastrados (GYM_LEADER/ADMIN)',
+        security: [{ bearerAuth: [] }],
         responses: {
           '200': {
             description: 'Lista de treinadores.',
@@ -166,15 +178,17 @@ export const openApiDocument = {
               },
             },
           },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
         },
       },
       post: {
         tags: ['Trainers'],
-        summary: 'Cadastra um novo treinador',
+        summary: 'Cadastra um novo treinador (equivalente a POST /auth/register)',
         requestBody: {
           required: true,
           content: {
-            'application/json': { schema: { $ref: '#/components/schemas/CreateTrainerInput' } },
+            'application/json': { schema: { $ref: '#/components/schemas/RegisterInput' } },
           },
         },
         responses: {
@@ -200,9 +214,10 @@ export const openApiDocument = {
       ],
       post: {
         tags: ['Trainers'],
-        summary: 'Captura um Pokémon (dados obtidos da PokéAPI) para o time do treinador',
+        summary: 'Captura um Pokémon para o time do treinador (o próprio treinador ou ADMIN)',
         description:
-          'Regra de negócio: o time ativo comporta no máximo 6 Pokémons. A checagem é atômica (transação com lock no treinador), inclusive para capturas simultâneas.',
+          'Regra de negócio: o time ativo comporta no máximo 6 Pokémons. A checagem é atômica (transação com lock no treinador), inclusive para capturas simultâneas. Prefira `POST /me/team/catch`, que usa o ID do token.',
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -217,6 +232,8 @@ export const openApiDocument = {
             },
           },
           '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
           '404': { $ref: '#/components/responses/NotFound' },
           '422': { $ref: '#/components/responses/TeamFull' },
           '502': { $ref: '#/components/responses/BadGateway' },
@@ -245,6 +262,193 @@ export const openApiDocument = {
         },
       },
     },
+    '/trainers/{id}/role': {
+      parameters: [
+        { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+      ],
+      patch: {
+        tags: ['Trainers'],
+        summary: 'Altera o perfil de acesso de um treinador (RBAC: GYM_LEADER/ADMIN)',
+        description:
+          'Ninguém altera o próprio perfil, e apenas ADMIN concede ou retira o papel ADMIN.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/ChangeRoleInput' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Perfil alterado.',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Trainer' } } },
+          },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/auth/register': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Cadastro de treinador com senha criptografada (bcrypt)',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/RegisterInput' } },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Treinador criado (o hash da senha nunca é retornado).',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Trainer' } } },
+          },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '409': { $ref: '#/components/responses/Conflict' },
+        },
+      },
+    },
+    '/auth/login': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Autentica e emite o JWT (access token) e o refresh token',
+        description:
+          'Limitado a poucas tentativas com falha por IP (proteção contra força bruta). A mensagem de erro é a mesma para e-mail inexistente e senha errada.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/LoginInput' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Autenticado.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/LoginResponse' } },
+            },
+          },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '429': { $ref: '#/components/responses/TooManyRequests' },
+        },
+      },
+    },
+    '/auth/refresh': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Troca o refresh token por um novo par de tokens (rotação)',
+        description:
+          'O refresh token usado é revogado. Reapresentar um token já revogado encerra todas as sessões do treinador (detecção de roubo).',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/RefreshInput' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Novos tokens.',
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/AuthTokens' } },
+            },
+          },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/auth/logout': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Encerra a sessão revogando o refresh token',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/RefreshInput' } },
+          },
+        },
+        responses: {
+          '204': { description: 'Sessão encerrada.' },
+          '400': { $ref: '#/components/responses/ValidationError' },
+        },
+      },
+    },
+    '/me': {
+      get: {
+        tags: ['Me'],
+        summary: 'Dados do treinador autenticado',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Treinador autenticado.',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Trainer' } } },
+          },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/me/team': {
+      get: {
+        tags: ['Me'],
+        summary: 'Time do treinador autenticado',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Time.',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Team' } } },
+          },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/me/team/catch': {
+      post: {
+        tags: ['Me'],
+        summary: 'Captura um Pokémon para o próprio time (ID do treinador vem do token)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/CaptureInput' } },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Pokémon capturado.',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Capture' } } },
+          },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '422': { $ref: '#/components/responses/TeamFull' },
+          '502': { $ref: '#/components/responses/BadGateway' },
+        },
+      },
+    },
+    '/me/team/{captureId}': {
+      parameters: [
+        {
+          name: 'captureId',
+          in: 'path',
+          required: true,
+          schema: { type: 'string', format: 'uuid' },
+        },
+      ],
+      delete: {
+        tags: ['Me'],
+        summary: 'Solta um Pokémon do time (apenas o próprio dono)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '204': { description: 'Pokémon solto.' },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
     '/stats': {
       get: {
         tags: ['Stats'],
@@ -261,6 +465,9 @@ export const openApiDocument = {
     },
   },
   components: {
+    securitySchemes: {
+      bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+    },
     schemas: {
       PokemonBaseStats: {
         type: 'object',
@@ -338,16 +545,65 @@ export const openApiDocument = {
           id: { type: 'string', format: 'uuid' },
           name: { type: 'string', example: 'Ash Ketchum' },
           email: { type: 'string', format: 'email', example: 'ash@kanto.com' },
+          role: { type: 'string', enum: ['TRAINER', 'GYM_LEADER', 'ADMIN'] },
           createdAt: { type: 'string', format: 'date-time' },
         },
       },
-      CreateTrainerInput: {
+      RegisterInput: {
         type: 'object',
-        required: ['name', 'email'],
+        required: ['name', 'email', 'password'],
         properties: {
           name: { type: 'string', example: 'Ash Ketchum' },
           email: { type: 'string', format: 'email', example: 'ash@kanto.com' },
+          password: {
+            type: 'string',
+            format: 'password',
+            minLength: 8,
+            maxLength: 72,
+            description: 'Mínimo de 8 caracteres, com ao menos uma letra e um número.',
+            example: 'pikachu123',
+          },
         },
+      },
+      LoginInput: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email', example: 'red@pokemanager.dev' },
+          password: { type: 'string', format: 'password', example: 'pokemon123' },
+        },
+      },
+      RefreshInput: {
+        type: 'object',
+        required: ['refreshToken'],
+        properties: { refreshToken: { type: 'string' } },
+      },
+      AuthTokens: {
+        type: 'object',
+        properties: {
+          accessToken: { type: 'string', description: 'JWT (HS256) com validade curta' },
+          refreshToken: { type: 'string', description: 'Token opaco para renovar a sessão' },
+          tokenType: { type: 'string', example: 'Bearer' },
+          expiresIn: {
+            type: 'integer',
+            description: 'Validade do access token, em segundos',
+            example: 900,
+          },
+        },
+      },
+      LoginResponse: {
+        allOf: [
+          { $ref: '#/components/schemas/AuthTokens' },
+          {
+            type: 'object',
+            properties: { trainer: { $ref: '#/components/schemas/Trainer' } },
+          },
+        ],
+      },
+      ChangeRoleInput: {
+        type: 'object',
+        required: ['role'],
+        properties: { role: { type: 'string', enum: ['TRAINER', 'GYM_LEADER', 'ADMIN'] } },
       },
       CaptureInput: {
         type: 'object',
@@ -465,6 +721,18 @@ export const openApiDocument = {
       },
       BadGateway: {
         description: 'PokéAPI indisponível.',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+      },
+      Unauthorized: {
+        description: 'Token ausente, inválido ou expirado (ou credenciais inválidas).',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+      },
+      Forbidden: {
+        description: 'Autenticado, mas sem permissão para esta ação.',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+      },
+      TooManyRequests: {
+        description: 'Limite de requisições excedido (rate limiting).',
         content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
       },
     },
