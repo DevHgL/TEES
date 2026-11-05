@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthTokensIssuer } from '@application/services/AuthTokensIssuer';
 import { LoginUseCase } from '@application/use-cases/auth/LoginUseCase';
@@ -106,6 +106,24 @@ describe('Autenticação', () => {
 
     it('token desconhecido é recusado', async () => {
       await expect(refresh.execute('inventado')).rejects.toBeInstanceOf(UnauthorizedError);
+    });
+
+    it('novos logins apagam os tokens expirados, mas mantêm os revogados ainda válidos', async () => {
+      vi.useFakeTimers();
+      try {
+        const first = await login.execute({ email: 'ash@test.com', password: 'pikachu123' });
+        await refresh.execute(first.refreshToken); // revoga o primeiro e cria o segundo
+        expect(refreshTokens.size).toBe(2);
+
+        await login.execute({ email: 'ash@test.com', password: 'pikachu123' });
+        expect(refreshTokens.size).toBe(3); // nada expirou: o revogado continua guardado
+
+        vi.advanceTimersByTime(tokenService.refreshTokenTtlMs + 1);
+        await login.execute({ email: 'ash@test.com', password: 'pikachu123' });
+        expect(refreshTokens.size).toBe(1); // só o token novo
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('logout revoga o token', async () => {
