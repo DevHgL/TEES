@@ -3,6 +3,7 @@ import { DeleteAccountUseCase } from '@application/use-cases/trainer/DeleteAccou
 import { GetTrainerByIdUseCase } from '@application/use-cases/trainer/GetTrainerByIdUseCase';
 import { GetTrainerTeamUseCase } from '@application/use-cases/trainer/GetTrainerTeamUseCase';
 import { ReleasePokemonUseCase } from '@application/use-cases/trainer/ReleasePokemonUseCase';
+import { RenameCaptureUseCase } from '@application/use-cases/trainer/RenameCaptureUseCase';
 
 import { MeController } from '@infrastructure/http/controllers/MeController';
 import { PrismaCaptureRepository } from '@infrastructure/repositories/PrismaCaptureRepository';
@@ -22,6 +23,7 @@ export function makeMeController(): MeController {
     new CapturePokemonUseCase(trainerRepository, captureRepository, makePokeApiGateway()),
     new ReleasePokemonUseCase(captureRepository),
     new DeleteAccountUseCase(trainerRepository, passwordHasher),
+    new RenameCaptureUseCase(captureRepository),
     refreshTokenCookie,
   );
 }

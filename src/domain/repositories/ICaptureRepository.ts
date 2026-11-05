@@ -20,5 +20,7 @@ export interface ICaptureRepository {
   findByTrainerId(trainerId: string): Promise<Capture[]>;
   countByTrainerId(trainerId: string): Promise<number>;
   findById(id: string): Promise<Capture | null>;
+  /** `null` remove o apelido. */
+  updateNickname(id: string, nickname: string | null): Promise<Capture>;
   delete(id: string): Promise<void>;
 }

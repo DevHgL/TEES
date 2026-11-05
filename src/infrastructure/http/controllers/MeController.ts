@@ -5,6 +5,7 @@ import { DeleteAccountUseCase } from '@application/use-cases/trainer/DeleteAccou
 import { GetTrainerByIdUseCase } from '@application/use-cases/trainer/GetTrainerByIdUseCase';
 import { GetTrainerTeamUseCase } from '@application/use-cases/trainer/GetTrainerTeamUseCase';
 import { ReleasePokemonUseCase } from '@application/use-cases/trainer/ReleasePokemonUseCase';
+import { RenameCaptureUseCase } from '@application/use-cases/trainer/RenameCaptureUseCase';
 import { Trainer } from '@domain/entities/Trainer';
 
 import { RefreshTokenCookie } from '@infrastructure/http/cookies/refreshTokenCookie';
@@ -14,7 +15,10 @@ import {
   captureIdParamSchema,
   deleteAccountSchema,
 } from '@infrastructure/http/validators/auth.schemas';
-import { capturePokemonSchema } from '@infrastructure/http/validators/trainer.schemas';
+import {
+  capturePokemonSchema,
+  renameCaptureSchema,
+} from '@infrastructure/http/validators/trainer.schemas';
 
 /** Rotas do treinador autenticado: o ID vem sempre do token, nunca da URL ou do corpo. */
 export class MeController {
@@ -24,6 +28,7 @@ export class MeController {
     private readonly capturePokemonUseCase: CapturePokemonUseCase,
     private readonly releasePokemonUseCase: ReleasePokemonUseCase,
     private readonly deleteAccountUseCase: DeleteAccountUseCase,
+    private readonly renameCaptureUseCase: RenameCaptureUseCase,
     private readonly refreshTokenCookie: RefreshTokenCookie,
   ) {}
 
@@ -54,6 +59,17 @@ export class MeController {
     const { captureId } = captureIdParamSchema.parse(req.params);
     await this.releasePokemonUseCase.execute({ trainerId: getAuth(req).trainerId, captureId });
     res.status(204).send();
+  };
+
+  rename = async (req: Request, res: Response): Promise<void> => {
+    const { captureId } = captureIdParamSchema.parse(req.params);
+    const { nickname } = renameCaptureSchema.parse(req.body);
+    const capture = await this.renameCaptureUseCase.execute({
+      trainerId: getAuth(req).trainerId,
+      captureId,
+      nickname,
+    });
+    res.status(200).json(capture);
   };
 
   deleteAccount = async (req: Request, res: Response): Promise<void> => {

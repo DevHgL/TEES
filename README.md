@@ -122,6 +122,7 @@ Legenda de acesso: 🌐 público · 🔑 autenticado (`Authorization: Bearer <to
 | DELETE | `/api/v1/me`                 | 🔑     | Apaga a própria conta (exige a senha atual)          |
 | GET    | `/api/v1/me/team`            | 🔑     | Time do treinador autenticado                        |
 | POST   | `/api/v1/me/team/catch`      | 🔑     | Captura com o ID do treinador extraído do token      |
+| PATCH  | `/api/v1/me/team/:captureId` | 🔑     | Troca ou remove (`null`) o apelido do Pokémon        |
 | DELETE | `/api/v1/me/team/:captureId` | 🔑     | Solta um Pokémon (só o próprio dono)                 |
 | PATCH  | `/api/v1/trainers/:id/role`  | 🛡️     | Altera o perfil de acesso (RBAC)                     |
 
@@ -140,7 +141,7 @@ Legenda de acesso: 🌐 público · 🔑 autenticado (`Authorization: Bearer <to
 | Método | Rota                                   | Acesso | Descrição                                            |
 | ------ | -------------------------------------- | ------ | ---------------------------------------------------- |
 | GET    | `/api/v1/pokedex/search?name=pikachu`  | 🌐     | Consulta direto na PokéAPI e retorna o DTO formatado |
-| GET    | `/api/v1/trainers`                     | 🛡️     | Lista treinadores (com e-mail e perfil)              |
+| GET    | `/api/v1/trainers`                     | 🛡️     | Lista paginada (`?search=&page=&limit=`), com e-mail |
 | POST   | `/api/v1/trainers`                     | 🌐     | ⚠️ Descontinuada: use `/auth/register`               |
 | POST   | `/api/v1/trainers/:trainerId/captures` | 🔑     | ⚠️ Descontinuada: use `/me/team/catch`               |
 | GET    | `/api/v1/trainers/:trainerId/team`     | 🌐     | Time público de um treinador (sem dados pessoais)    |

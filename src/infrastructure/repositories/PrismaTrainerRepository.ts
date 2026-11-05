@@ -1,9 +1,15 @@
 import { Role, Trainer } from '@domain/entities/Trainer';
 import { TrainerEmailAlreadyInUseError } from '@domain/errors/TrainerEmailAlreadyInUseError';
-import { CreateTrainerData, ITrainerRepository } from '@domain/repositories/ITrainerRepository';
+import {
+  CreateTrainerData,
+  ITrainerRepository,
+  TrainerFilter,
+} from '@domain/repositories/ITrainerRepository';
+import { Paginated, PaginationParams } from '@domain/repositories/Pagination';
 
 import { isUniqueConstraintError } from '@infrastructure/database/prismaErrors';
 import {
+  Prisma,
   PrismaClient,
   Trainer as TrainerRecord,
 } from '@infrastructure/database/generated/prisma/client';
@@ -11,9 +17,37 @@ import {
 export class PrismaTrainerRepository implements ITrainerRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findAll(): Promise<Trainer[]> {
-    const records = await this.prisma.trainer.findMany({ orderBy: { createdAt: 'asc' } });
-    return records.map(toDomain);
+  async findAll(
+    { search }: TrainerFilter,
+    { page, limit }: PaginationParams,
+  ): Promise<Paginated<Trainer>> {
+    const where: Prisma.TrainerWhereInput = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const [records, total] = await this.prisma.$transaction([
+      this.prisma.trainer.findMany({
+        where,
+        // id desempata registros com o mesmo createdAt, mantendo a paginação estável.
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.trainer.count({ where }),
+    ]);
+
+    return {
+      data: records.map(toDomain),
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findById(id: string): Promise<Trainer | null> {

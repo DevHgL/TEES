@@ -116,7 +116,16 @@
             GYM_LEADER e ADMIN alteram perfis. Ninguém altera o próprio perfil, e só ADMIN concede
             ou retira o papel ADMIN.
           </p>
+          <form id="admin-form" class="search">
+            <input name="search" placeholder="Buscar por nome ou e-mail" maxlength="100" />
+            <button type="submit">Buscar</button>
+          </form>
           <div class="table-wrap"><table id="admin-trainers"></table></div>
+          <div id="admin-pager" class="pager" hidden>
+            <button id="admin-prev" class="ghost">‹ Anterior</button>
+            <span id="admin-page-info" class="muted"></span>
+            <button id="admin-next" class="ghost">Próxima ›</button>
+          </div>
         </article>
       </section>
     </main>

@@ -107,6 +107,14 @@ button.danger {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
+.card-actions {
+  display: flex;
+  gap: 8px;
+}
+.card-actions button {
+  flex: 1;
+}
+
 .danger-zone {
   align-items: center;
   border-left: 4px solid var(--error);
@@ -121,6 +129,9 @@ button.danger {
   max-width: 320px;
 }
 
+.panel .search {
+  padding: 12px 0;
+}
 .search input {
   flex: 1;
   min-width: 180px;
