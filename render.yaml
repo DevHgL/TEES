@@ -1,0 +1,24 @@
+# Blueprint do Render: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: pokemanager-api
+    runtime: node
+    plan: free
+    region: oregon
+    # --include=dev: o build precisa do TypeScript e do CLI do Prisma.
+    buildCommand: npm ci --include=dev && npm run build && npx prisma migrate deploy && npx prisma db seed
+    startCommand: npm start
+    healthCheckPath: /api/health
+    # Só publica depois que o CI do GitHub passar.
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: '24'
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: ''
