@@ -118,6 +118,7 @@ Legenda de acesso: 🌐 público · 🔑 autenticado (`Authorization: Bearer <to
 | POST   | `/api/v1/auth/refresh`       | 🌐     | Troca o refresh token por um novo par (rotação) |
 | POST   | `/api/v1/auth/logout`        | 🌐     | Revoga o refresh token                          |
 | GET    | `/api/v1/me`                 | 🔑     | Dados do treinador autenticado                  |
+| DELETE | `/api/v1/me`                 | 🔑     | Apaga a própria conta (exige a senha atual)     |
 | GET    | `/api/v1/me/team`            | 🔑     | Time do treinador autenticado                   |
 | POST   | `/api/v1/me/team/catch`      | 🔑     | Captura com o ID do treinador extraído do token |
 | DELETE | `/api/v1/me/team/:captureId` | 🔑     | Solta um Pokémon (só o próprio dono)            |
@@ -216,6 +217,9 @@ isso na aba **Estatísticas**.
 - **CORS:** apenas as origens em `CORS_ORIGINS` (o frontend em `/` é a mesma origem).
 - **Rate limiting:** 300 requisições por IP a cada 15 minutos na API e só 5 tentativas de login
   **com falha** por IP no mesmo período (tentativas certas não contam).
+- **Exclusão de conta:** `DELETE /me` exige a senha atual no corpo (um token vazado não basta), e
+  senhas erradas gastam o mesmo limite de tentativas do login. Capturas e sessões são apagadas em
+  cascata, e o último `ADMIN` não pode apagar a própria conta.
 - **Limpeza de sessões:** a cada login/refresh, os refresh tokens expirados do treinador são
   apagados. Os revogados ainda válidos ficam, porque é com eles que o reuso é detectado.
 - **Outros:** corpo JSON limitado a 10 KB, rotas inexistentes respondem 404 em JSON e o `.env` é

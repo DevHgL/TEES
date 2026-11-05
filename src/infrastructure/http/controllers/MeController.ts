@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 
 import { CapturePokemonUseCase } from '@application/use-cases/trainer/CapturePokemonUseCase';
+import { DeleteAccountUseCase } from '@application/use-cases/trainer/DeleteAccountUseCase';
 import { GetTrainerByIdUseCase } from '@application/use-cases/trainer/GetTrainerByIdUseCase';
 import { GetTrainerTeamUseCase } from '@application/use-cases/trainer/GetTrainerTeamUseCase';
 import { ReleasePokemonUseCase } from '@application/use-cases/trainer/ReleasePokemonUseCase';
@@ -8,7 +9,10 @@ import { Trainer } from '@domain/entities/Trainer';
 
 import { getAuth } from '@infrastructure/http/middlewares/ensureAuthenticated';
 import { toTrainerDTO } from '@infrastructure/http/presenters/trainerPresenter';
-import { captureIdParamSchema } from '@infrastructure/http/validators/auth.schemas';
+import {
+  captureIdParamSchema,
+  deleteAccountSchema,
+} from '@infrastructure/http/validators/auth.schemas';
 import { capturePokemonSchema } from '@infrastructure/http/validators/trainer.schemas';
 
 /** Rotas do treinador autenticado: o ID vem sempre do token, nunca da URL ou do corpo. */
@@ -18,6 +22,7 @@ export class MeController {
     private readonly getTrainerTeamUseCase: GetTrainerTeamUseCase,
     private readonly capturePokemonUseCase: CapturePokemonUseCase,
     private readonly releasePokemonUseCase: ReleasePokemonUseCase,
+    private readonly deleteAccountUseCase: DeleteAccountUseCase,
   ) {}
 
   profile = async (req: Request, res: Response): Promise<void> => {
@@ -46,6 +51,12 @@ export class MeController {
   release = async (req: Request, res: Response): Promise<void> => {
     const { captureId } = captureIdParamSchema.parse(req.params);
     await this.releasePokemonUseCase.execute({ trainerId: getAuth(req).trainerId, captureId });
+    res.status(204).send();
+  };
+
+  deleteAccount = async (req: Request, res: Response): Promise<void> => {
+    const { password } = deleteAccountSchema.parse(req.body);
+    await this.deleteAccountUseCase.execute({ trainerId: getAuth(req).trainerId, password });
     res.status(204).send();
   };
 }
