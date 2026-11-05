@@ -1,5 +1,6 @@
 import path from 'node:path';
 
+import cookieParser from 'cookie-parser';
 import express, { Application } from 'express';
 import swaggerUi from 'swagger-ui-express';
 
@@ -54,6 +55,7 @@ export function createApp(): Application {
   app.use(corsPolicy(security));
   // Limite de tamanho do corpo: evita payloads gigantes (negação de serviço).
   app.use(express.json({ limit: '10kb' }));
+  app.use(cookieParser());
 
   // Frontend estático (public/), servido na raiz da API.
   app.use(express.static(path.resolve(__dirname, '../../public')));

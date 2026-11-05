@@ -10,6 +10,7 @@ import { prisma } from '@main/config/database';
 import {
   authTokensIssuer,
   passwordHasher,
+  refreshTokenCookie,
   refreshTokenRepository,
   tokenService,
 } from '@main/factories/authProviders.factory';
@@ -27,5 +28,6 @@ export function makeAuthController(): AuthController {
       authTokensIssuer,
     ),
     new LogoutUseCase(refreshTokenRepository, tokenService),
+    refreshTokenCookie,
   );
 }

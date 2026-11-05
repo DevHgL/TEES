@@ -107,22 +107,22 @@ npm run test:coverage
 ## 📚 Contrato REST
 
 Legenda de acesso: 🌐 público · 🔑 autenticado (`Authorization: Bearer <token>`) ·
-🛡️ apenas `GYM_LEADER`/`ADMIN`.
+🍪 cookie `pokemanager_refresh` (enviado pelo navegador) · 🛡️ apenas `GYM_LEADER`/`ADMIN`.
 
 ### Autenticação e treinador logado (Entrega 3)
 
-| Método | Rota                         | Acesso | Descrição                                       |
-| ------ | ---------------------------- | ------ | ----------------------------------------------- |
-| POST   | `/api/v1/auth/register`      | 🌐     | Cadastro com senha criptografada (bcrypt)       |
-| POST   | `/api/v1/auth/login`         | 🌐     | Emite o JWT (15 min) e o refresh token (7 dias) |
-| POST   | `/api/v1/auth/refresh`       | 🌐     | Troca o refresh token por um novo par (rotação) |
-| POST   | `/api/v1/auth/logout`        | 🌐     | Revoga o refresh token                          |
-| GET    | `/api/v1/me`                 | 🔑     | Dados do treinador autenticado                  |
-| DELETE | `/api/v1/me`                 | 🔑     | Apaga a própria conta (exige a senha atual)     |
-| GET    | `/api/v1/me/team`            | 🔑     | Time do treinador autenticado                   |
-| POST   | `/api/v1/me/team/catch`      | 🔑     | Captura com o ID do treinador extraído do token |
-| DELETE | `/api/v1/me/team/:captureId` | 🔑     | Solta um Pokémon (só o próprio dono)            |
-| PATCH  | `/api/v1/trainers/:id/role`  | 🛡️     | Altera o perfil de acesso (RBAC)                |
+| Método | Rota                         | Acesso | Descrição                                            |
+| ------ | ---------------------------- | ------ | ---------------------------------------------------- |
+| POST   | `/api/v1/auth/register`      | 🌐     | Cadastro com senha criptografada (bcrypt)            |
+| POST   | `/api/v1/auth/login`         | 🌐     | Emite o JWT (15 min) e o cookie de refresh (7 dias)  |
+| POST   | `/api/v1/auth/refresh`       | 🍪     | Novo JWT a partir do cookie, que é trocado (rotação) |
+| POST   | `/api/v1/auth/logout`        | 🍪     | Revoga o refresh token e apaga o cookie              |
+| GET    | `/api/v1/me`                 | 🔑     | Dados do treinador autenticado                       |
+| DELETE | `/api/v1/me`                 | 🔑     | Apaga a própria conta (exige a senha atual)          |
+| GET    | `/api/v1/me/team`            | 🔑     | Time do treinador autenticado                        |
+| POST   | `/api/v1/me/team/catch`      | 🔑     | Captura com o ID do treinador extraído do token      |
+| DELETE | `/api/v1/me/team/:captureId` | 🔑     | Solta um Pokémon (só o próprio dono)                 |
+| PATCH  | `/api/v1/trainers/:id/role`  | 🛡️     | Altera o perfil de acesso (RBAC)                     |
 
 ### Catálogo local (Entrega 1, persistido no PostgreSQL)
 
@@ -203,6 +203,15 @@ isso na aba **Estatísticas**.
 - **Refresh token:** valor aleatório (não é JWT), guardado no banco só como hash SHA-256. Cada
   uso gera um novo e revoga o anterior; se um token já revogado for reapresentado (sinal de
   roubo), todas as sessões do treinador são encerradas.
+- **Onde ficam os tokens:** o refresh token viaja **só** no cookie `pokemanager_refresh`,
+  `HttpOnly` (o JavaScript não lê, então um XSS não o rouba), `SameSite=Strict` (não vai em
+  requisições de outros sites, contra CSRF), `Secure` em produção e com `Path=/api/v1/auth` (só
+  `/auth/refresh` e `/auth/logout` o recebem). Ele nunca aparece no JSON: se aparecesse, um
+  script injetado poderia chamar `/auth/refresh` e lê-lo. O access token continua no cabeçalho
+  `Authorization: Bearer`, e o frontend o guarda só em memória, nunca no `localStorage`; ao
+  recarregar a página, a sessão é restaurada pelo cookie. As renovações são serializadas entre
+  abas (Web Locks), para que duas abas não reapresentem o mesmo token e disparem a detecção de
+  roubo.
 - **Login:** a mensagem de erro é a mesma para e-mail inexistente e senha errada, e o bcrypt roda
   mesmo quando o e-mail não existe, para que o tempo de resposta não revele quem tem conta.
 - **RBAC:** `ensureRole('GYM_LEADER', 'ADMIN')` protege as rotas administrativas. Na troca de

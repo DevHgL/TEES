@@ -16,18 +16,19 @@ describe('DELETE /api/v1/me', () => {
       .send({ pokemonName: 'pikachu' })
       .expect(201);
 
-    await api()
+    const res = await api()
       .delete('/api/v1/me')
       .set(...bearer(ash))
       .send({ password: PASSWORD })
       .expect(204);
+    expect(String(res.headers['set-cookie'])).toMatch(/pokemanager_refresh=;/);
 
     expect(await prisma.trainer.count({ where: { id: ash.id } })).toBe(0);
     expect(await prisma.capture.count({ where: { trainerId: ash.id } })).toBe(0);
     expect(await prisma.refreshToken.count({ where: { trainerId: ash.id } })).toBe(0);
 
     // O e-mail fica livre e o refresh token antigo não serve mais.
-    await api().post('/api/v1/auth/refresh').send({ refreshToken: ash.refreshToken }).expect(401);
+    await api().post('/api/v1/auth/refresh').set('Cookie', ash.refreshCookie).expect(401);
     await api()
       .post('/api/v1/auth/register')
       .send({ name: 'Ash', email: 'ash@test.com', password: PASSWORD })

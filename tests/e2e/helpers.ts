@@ -20,7 +20,21 @@ export async function resetDatabase(): Promise<void> {
 export interface Session {
   id: string;
   accessToken: string;
-  refreshToken: string;
+  /** Valor do cabeçalho Cookie com o refresh token (pokemanager_refresh=...). */
+  refreshCookie: string;
+}
+
+/** Extrai o cookie do refresh token do Set-Cookie, pronto para o cabeçalho Cookie. */
+export function refreshCookieFrom(res: { headers: Record<string, unknown> }): string {
+  const setCookie = res.headers['set-cookie'];
+  const cookies = Array.isArray(setCookie) ? (setCookie as string[]) : [];
+  const cookie = cookies.find((c) => c.startsWith('pokemanager_refresh='));
+
+  if (!cookie) {
+    throw new Error('A resposta não definiu o cookie pokemanager_refresh.');
+  }
+
+  return cookie.split(';')[0]!;
 }
 
 /** Cadastra um treinador (com o papel pedido) e faz login. */
@@ -35,11 +49,15 @@ export async function createSession(name: string, role: Role = 'TRAINER'): Promi
     await prisma.trainer.update({ where: { id: trainer.id }, data: { role } });
   }
 
-  const { body } = await api()
+  const res = await api()
     .post('/api/v1/auth/login')
     .send({ email, password: PASSWORD })
     .expect(200);
-  return { id: trainer.id, accessToken: body.accessToken, refreshToken: body.refreshToken };
+  return {
+    id: trainer.id,
+    accessToken: res.body.accessToken,
+    refreshCookie: refreshCookieFrom(res),
+  };
 }
 
 export const bearer = (session: Session): [string, string] => [
