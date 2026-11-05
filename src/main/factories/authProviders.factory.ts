@@ -2,6 +2,7 @@ import { IPasswordHasher } from '@application/ports/IPasswordHasher';
 import { ITokenService } from '@application/ports/ITokenService';
 import { AuthTokensIssuer } from '@application/services/AuthTokensIssuer';
 
+import { RefreshTokenCookie } from '@infrastructure/http/cookies/refreshTokenCookie';
 import { BcryptPasswordHasher } from '@infrastructure/providers/BcryptPasswordHasher';
 import { JwtTokenService } from '@infrastructure/providers/JwtTokenService';
 import { PrismaRefreshTokenRepository } from '@infrastructure/repositories/PrismaRefreshTokenRepository';
@@ -20,3 +21,8 @@ export const passwordHasher: IPasswordHasher = new BcryptPasswordHasher(env.bcry
 export const refreshTokenRepository = new PrismaRefreshTokenRepository(prisma);
 
 export const authTokensIssuer = new AuthTokensIssuer(tokenService, refreshTokenRepository);
+
+export const refreshTokenCookie = new RefreshTokenCookie({
+  secure: env.isProduction,
+  maxAgeMs: tokenService.refreshTokenTtlMs,
+});

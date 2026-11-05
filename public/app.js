@@ -10,53 +10,78 @@ const STAT_LABELS = {
 
 const $ = (sel) => document.querySelector(sel);
 
-// ---------- sessão (JWT + refresh token) ----------
+// ---------- sessão (JWT em memória + refresh token em cookie httpOnly) ----------
 
-const SESSION_KEY = 'pokemanager-session';
+// O access token fica só nesta variável: nada de token no localStorage, onde qualquer
+// script injetado (XSS) poderia lê-lo. O refresh token está num cookie httpOnly que o
+// JavaScript nem enxerga; ao recarregar a página, a sessão é restaurada por ele.
+let session = null; // { accessToken, trainer }
 
-function loadSession() {
+// Só um aviso de "há uma sessão" (sem nenhum segredo), para não chamar /auth/refresh à toa
+// quando o visitante nunca entrou.
+const SESSION_HINT_KEY = 'pokemanager-has-session';
+
+function storage(action, key, value) {
   try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY)) ?? null;
+    if (action === 'get') return localStorage.getItem(key);
+    if (action === 'set') localStorage.setItem(key, value);
+    else localStorage.removeItem(key);
   } catch {
-    return null;
+    // Armazenamento indisponível (ex: navegação privada): só perdemos o aviso.
   }
+  return null;
 }
 
-let session = loadSession();
+// Versões anteriores guardavam os tokens no localStorage: apaga o que tiver sobrado.
+storage('remove', 'pokemanager-session');
 
 function saveSession(next) {
   session = next;
-  try {
-    if (next) localStorage.setItem(SESSION_KEY, JSON.stringify(next));
-    else localStorage.removeItem(SESSION_KEY);
-  } catch {
-    // Armazenamento indisponível (ex: navegação privada): a sessão vale só nesta aba.
-  }
+  if (next) storage('set', SESSION_HINT_KEY, '1');
+  else storage('remove', SESSION_HINT_KEY);
   renderSession();
 }
 
 const isLoggedIn = () => Boolean(session?.accessToken);
 const canManageRoles = () => ['GYM_LEADER', 'ADMIN'].includes(session?.trainer?.role);
 
-// Uma única renovação por vez: se várias requisições recebem 401 juntas, todas esperam
-// o mesmo refresh. Reenviar o mesmo refresh token seria tratado pelo servidor como roubo.
+// Cada refresh troca o cookie e invalida o anterior; dois refreshes com o mesmo cookie
+// seriam tratados pelo servidor como roubo (e derrubariam todas as sessões). Por isso:
+// uma renovação por vez nesta aba e, com Web Locks, uma por vez entre as abas.
 let refreshing = null;
 
-async function refreshSession() {
-  refreshing ??= (async () => {
-    const res = await fetch(`${API}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: session.refreshToken }),
-    });
-    if (!res.ok) {
+async function requestRefresh() {
+  const res = await fetch(`${API}/auth/refresh`, { method: 'POST' });
+  if (!res.ok) {
+    saveSession(null);
+    throw new Error('Sua sessão expirou. Entre novamente.');
+  }
+  const { accessToken } = await res.json();
+  let trainer = session?.trainer;
+  if (!trainer) {
+    const me = await fetch(`${API}/me`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!me.ok) {
       saveSession(null);
-      throw new Error('Sua sessão expirou. Entre novamente.');
+      throw new Error('Não foi possível restaurar a sessão. Entre novamente.');
     }
-    const tokens = await res.json();
-    saveSession({ ...session, ...tokens });
-  })().finally(() => (refreshing = null));
+    trainer = await me.json();
+  }
+  saveSession({ accessToken, trainer });
+}
+
+function refreshSession() {
+  refreshing ??= (
+    navigator.locks
+      ? navigator.locks.request('pokemanager-refresh', requestRefresh)
+      : requestRefresh()
+  ).finally(() => (refreshing = null));
   return refreshing;
+}
+
+/** Ao abrir a página: se havia sessão, recupera um access token pelo cookie. */
+async function restoreSession() {
+  if (!storage('get', SESSION_HINT_KEY)) return;
+  await refreshSession().catch(() => {});
 }
 
 // ---------- helpers ----------
@@ -68,7 +93,7 @@ async function api(path, options = {}, retry = true) {
   const res = await fetch(API + path, { ...options, headers });
 
   // Access token expirado: renova com o refresh token e repete a requisição uma vez.
-  if (res.status === 401 && retry && session?.refreshToken) {
+  if (res.status === 401 && retry && isLoggedIn()) {
     await refreshSession();
     return api(path, options, false);
   }
@@ -174,7 +199,7 @@ $('#auth-form').addEventListener('submit', async (e) => {
       });
     }
     const login = await api('/auth/login', { method: 'POST', body: JSON.stringify(credentials) });
-    saveSession(login);
+    saveSession({ accessToken: login.accessToken, trainer: login.trainer });
     form.reset();
     toast(`Bem-vindo(a), ${login.trainer.name}!`);
     reloadCurrentTab();
@@ -184,13 +209,9 @@ $('#auth-form').addEventListener('submit', async (e) => {
 });
 
 $('#logout-btn').addEventListener('click', async () => {
-  const refreshToken = session?.refreshToken;
   saveSession(null);
-  if (refreshToken) {
-    await api('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }).catch(
-      () => {},
-    );
-  }
+  // O servidor revoga o refresh token do cookie e apaga o cookie.
+  await fetch(`${API}/auth/logout`, { method: 'POST' }).catch(() => {});
   toast('Você saiu.');
   if (!$('#tab-admin').hidden) openTab('pokedex');
   else reloadCurrentTab();
@@ -509,5 +530,7 @@ document.querySelectorAll('.tabs button').forEach((btn) => {
   });
 });
 
-renderSession();
-openTab(location.hash.slice(1));
+restoreSession().finally(() => {
+  renderSession();
+  openTab(location.hash.slice(1));
+});

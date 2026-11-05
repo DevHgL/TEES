@@ -9,7 +9,7 @@ import { PrismaCaptureRepository } from '@infrastructure/repositories/PrismaCapt
 import { PrismaTrainerRepository } from '@infrastructure/repositories/PrismaTrainerRepository';
 
 import { prisma } from '@main/config/database';
-import { passwordHasher } from '@main/factories/authProviders.factory';
+import { passwordHasher, refreshTokenCookie } from '@main/factories/authProviders.factory';
 import { makePokeApiGateway } from '@main/factories/pokeApiGateway.factory';
 
 export function makeMeController(): MeController {
@@ -22,5 +22,6 @@ export function makeMeController(): MeController {
     new CapturePokemonUseCase(trainerRepository, captureRepository, makePokeApiGateway()),
     new ReleasePokemonUseCase(captureRepository),
     new DeleteAccountUseCase(trainerRepository, passwordHasher),
+    refreshTokenCookie,
   );
 }

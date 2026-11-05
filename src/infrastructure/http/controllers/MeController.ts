@@ -7,6 +7,7 @@ import { GetTrainerTeamUseCase } from '@application/use-cases/trainer/GetTrainer
 import { ReleasePokemonUseCase } from '@application/use-cases/trainer/ReleasePokemonUseCase';
 import { Trainer } from '@domain/entities/Trainer';
 
+import { RefreshTokenCookie } from '@infrastructure/http/cookies/refreshTokenCookie';
 import { getAuth } from '@infrastructure/http/middlewares/ensureAuthenticated';
 import { toTrainerDTO } from '@infrastructure/http/presenters/trainerPresenter';
 import {
@@ -23,6 +24,7 @@ export class MeController {
     private readonly capturePokemonUseCase: CapturePokemonUseCase,
     private readonly releasePokemonUseCase: ReleasePokemonUseCase,
     private readonly deleteAccountUseCase: DeleteAccountUseCase,
+    private readonly refreshTokenCookie: RefreshTokenCookie,
   ) {}
 
   profile = async (req: Request, res: Response): Promise<void> => {
@@ -57,6 +59,8 @@ export class MeController {
   deleteAccount = async (req: Request, res: Response): Promise<void> => {
     const { password } = deleteAccountSchema.parse(req.body);
     await this.deleteAccountUseCase.execute({ trainerId: getAuth(req).trainerId, password });
+    // As sessões já foram apagadas no banco; o cookie também sai do navegador.
+    this.refreshTokenCookie.clear(res);
     res.status(204).send();
   };
 }

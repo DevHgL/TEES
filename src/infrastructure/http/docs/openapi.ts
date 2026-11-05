@@ -315,7 +315,7 @@ export const openApiDocument = {
         tags: ['Auth'],
         summary: 'Autentica e emite o JWT (access token) e o refresh token',
         description:
-          'Limitado a poucas tentativas com falha por IP (proteção contra força bruta). A mensagem de erro é a mesma para e-mail inexistente e senha errada.',
+          'O access token vem no JSON. O refresh token vem só no cookie `pokemanager_refresh` (httpOnly, SameSite=Strict, Secure em produção, Path=/api/v1/auth), que o JavaScript não consegue ler. Limitado a poucas tentativas com falha por IP (proteção contra força bruta). A mensagem de erro é a mesma para e-mail inexistente e senha errada.',
         requestBody: {
           required: true,
           content: {
@@ -325,6 +325,7 @@ export const openApiDocument = {
         responses: {
           '200': {
             description: 'Autenticado.',
+            headers: { 'Set-Cookie': { $ref: '#/components/headers/RefreshTokenCookie' } },
             content: {
               'application/json': { schema: { $ref: '#/components/schemas/LoginResponse' } },
             },
@@ -338,23 +339,18 @@ export const openApiDocument = {
     '/auth/refresh': {
       post: {
         tags: ['Auth'],
-        summary: 'Troca o refresh token por um novo par de tokens (rotação)',
+        summary: 'Renova a sessão com o refresh token do cookie (rotação)',
         description:
-          'O refresh token usado é revogado. Reapresentar um token já revogado encerra todas as sessões do treinador (detecção de roubo).',
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': { schema: { $ref: '#/components/schemas/RefreshInput' } },
-          },
-        },
+          'Sem corpo: o refresh token é lido do cookie `pokemanager_refresh`, que o navegador envia sozinho. Devolve um novo access token e troca o cookie. O token usado é revogado; reapresentar um token já revogado encerra todas as sessões do treinador (detecção de roubo). Em caso de erro, o cookie é apagado.',
+        security: [{ refreshCookie: [] }],
         responses: {
           '200': {
-            description: 'Novos tokens.',
+            description: 'Novo access token (e novo cookie).',
+            headers: { 'Set-Cookie': { $ref: '#/components/headers/RefreshTokenCookie' } },
             content: {
               'application/json': { schema: { $ref: '#/components/schemas/AuthTokens' } },
             },
           },
-          '400': { $ref: '#/components/responses/ValidationError' },
           '401': { $ref: '#/components/responses/Unauthorized' },
         },
       },
@@ -362,16 +358,11 @@ export const openApiDocument = {
     '/auth/logout': {
       post: {
         tags: ['Auth'],
-        summary: 'Encerra a sessão revogando o refresh token',
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': { schema: { $ref: '#/components/schemas/RefreshInput' } },
-          },
-        },
+        summary: 'Encerra a sessão revogando o refresh token do cookie',
+        description: 'Sem corpo. Revoga o token do cookie (se houver) e apaga o cookie.',
+        security: [{ refreshCookie: [] }],
         responses: {
           '204': { description: 'Sessão encerrada.' },
-          '400': { $ref: '#/components/responses/ValidationError' },
         },
       },
     },
@@ -488,6 +479,14 @@ export const openApiDocument = {
   components: {
     securitySchemes: {
       bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      refreshCookie: { type: 'apiKey', in: 'cookie', name: 'pokemanager_refresh' },
+    },
+    headers: {
+      RefreshTokenCookie: {
+        description:
+          'pokemanager_refresh=<token>; Path=/api/v1/auth; HttpOnly; SameSite=Strict; Secure (em produção)',
+        schema: { type: 'string' },
+      },
     },
     schemas: {
       PokemonBaseStats: {
@@ -601,16 +600,10 @@ export const openApiDocument = {
           password: { type: 'string', format: 'password', example: 'pokemon123' },
         },
       },
-      RefreshInput: {
-        type: 'object',
-        required: ['refreshToken'],
-        properties: { refreshToken: { type: 'string' } },
-      },
       AuthTokens: {
         type: 'object',
         properties: {
           accessToken: { type: 'string', description: 'JWT (HS256) com validade curta' },
-          refreshToken: { type: 'string', description: 'Token opaco para renovar a sessão' },
           tokenType: { type: 'string', example: 'Bearer' },
           expiresIn: {
             type: 'integer',
