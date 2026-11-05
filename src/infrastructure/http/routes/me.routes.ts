@@ -15,6 +15,7 @@ export function meRoutes(
   router.delete('/', passwordLimiter, controller.deleteAccount);
   router.get('/team', controller.team);
   router.post('/team/catch', controller.catch);
+  router.patch('/team/:captureId', controller.rename);
   router.delete('/team/:captureId', controller.release);
 
   return router;

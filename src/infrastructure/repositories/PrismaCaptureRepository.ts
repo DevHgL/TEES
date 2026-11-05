@@ -58,6 +58,11 @@ export class PrismaCaptureRepository implements ICaptureRepository {
     return record ? toDomain(record) : null;
   }
 
+  async updateNickname(id: string, nickname: string | null): Promise<Capture> {
+    const record = await this.prisma.capture.update({ where: { id }, data: { nickname } });
+    return toDomain(record);
+  }
+
   async delete(id: string): Promise<void> {
     await this.prisma.capture.delete({ where: { id } });
   }

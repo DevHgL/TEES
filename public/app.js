@@ -314,7 +314,10 @@ async function loadTeam() {
       .map((p) =>
         pokemonCard(p, {
           subtitle: `#${p.pokedexNumber}${p.nickname ? ` · ${escapeHtml(p.name)}` : ''}`,
-          action: `<button class="ghost release-btn" data-id="${p.id}" data-name="${escapeHtml(p.nickname || p.name)}">Soltar</button>`,
+          action: `<div class="card-actions">
+            <button class="ghost rename-btn" data-id="${p.id}" data-nickname="${escapeHtml(p.nickname ?? '')}" data-species="${escapeHtml(p.name)}">Renomear</button>
+            <button class="ghost release-btn" data-id="${p.id}" data-name="${escapeHtml(p.nickname || p.name)}">Soltar</button>
+          </div>`,
         }),
       )
       .concat(empty)
@@ -326,6 +329,9 @@ async function loadTeam() {
 }
 
 $('#team-grid').addEventListener('click', async (e) => {
+  const rename = e.target.closest('.rename-btn');
+  if (rename) return renameCapture(rename.dataset);
+
   const btn = e.target.closest('.release-btn');
   if (!btn || !confirm(`Soltar ${btn.dataset.name}? Isso não pode ser desfeito.`)) return;
   try {
@@ -336,6 +342,25 @@ $('#team-grid').addEventListener('click', async (e) => {
     toast(err.message, true);
   }
 });
+
+async function renameCapture({ id, nickname, species }) {
+  const input = prompt(`Apelido para ${species} (deixe vazio para remover):`, nickname);
+  if (input === null) return; // cancelou
+  const next = input.trim() || null;
+  if (next === (nickname || null)) return;
+  try {
+    const c = await api(`/me/team/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ nickname: next }),
+    });
+    toast(
+      c.nickname ? `${species} agora se chama ${c.nickname}.` : `Apelido de ${species} removido.`,
+    );
+    loadTeam();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
 
 // ---------- catálogo local ----------
 
@@ -456,16 +481,39 @@ async function loadStats() {
 
 const ROLES = ['TRAINER', 'GYM_LEADER', 'ADMIN'];
 
+const adminState = { page: 1, search: '' };
+
 async function loadAdmin() {
   const table = $('#admin-trainers');
+  const pager = $('#admin-pager');
   if (!canManageRoles()) {
+    pager.hidden = true;
     table.innerHTML =
       '<tbody><tr><td class="muted">Acesso restrito a GYM_LEADER e ADMIN.</td></tr></tbody>';
     return;
   }
   try {
-    const trainers = await api('/trainers');
+    const params = new URLSearchParams({
+      page: adminState.page,
+      limit: 10,
+      ...(adminState.search && { search: adminState.search }),
+    });
+    const result = await api(`/trainers?${params}`);
+    const trainers = result.data;
     const me = session.trainer;
+
+    pager.hidden = result.totalPages <= 1;
+    $('#admin-page-info').textContent =
+      `Página ${result.page} de ${result.totalPages} · ${result.total} treinadores`;
+    $('#admin-prev').disabled = result.page <= 1;
+    $('#admin-next').disabled = result.page >= result.totalPages;
+
+    if (!trainers.length) {
+      table.innerHTML =
+        '<tbody><tr><td class="muted">Nenhum treinador encontrado.</td></tr></tbody>';
+      return;
+    }
+
     table.innerHTML = `<thead><tr><th>Treinador</th><th>E-mail</th><th>Perfil</th></tr></thead>
       <tbody>${trainers
         .map((t) => {
@@ -482,9 +530,27 @@ async function loadAdmin() {
         })
         .join('')}</tbody>`;
   } catch (err) {
+    pager.hidden = true;
     table.innerHTML = `<tbody><tr><td class="error">${escapeHtml(err.message)}</td></tr></tbody>`;
   }
 }
+
+$('#admin-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  adminState.search = e.target.search.value.trim();
+  adminState.page = 1;
+  loadAdmin();
+});
+
+$('#admin-prev').addEventListener('click', () => {
+  adminState.page -= 1;
+  loadAdmin();
+});
+
+$('#admin-next').addEventListener('click', () => {
+  adminState.page += 1;
+  loadAdmin();
+});
 
 $('#admin-trainers').addEventListener('change', async (e) => {
   const select = e.target.closest('.role-select');

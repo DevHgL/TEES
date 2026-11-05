@@ -167,17 +167,37 @@ export const openApiDocument = {
     '/trainers': {
       get: {
         tags: ['Trainers'],
-        summary: 'Lista os treinadores cadastrados (GYM_LEADER/ADMIN)',
+        summary: 'Lista paginada dos treinadores (GYM_LEADER/ADMIN)',
         security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'search',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', maxLength: 100 },
+            description: 'Busca parcial no nome ou no e-mail (sem diferenciar maiúsculas).',
+          },
+          {
+            name: 'page',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 1, default: 1 },
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          },
+        ],
         responses: {
           '200': {
-            description: 'Lista de treinadores.',
+            description: 'Página de treinadores, na ordem de cadastro.',
             content: {
-              'application/json': {
-                schema: { type: 'array', items: { $ref: '#/components/schemas/Trainer' } },
-              },
+              'application/json': { schema: { $ref: '#/components/schemas/PaginatedTrainers' } },
             },
           },
+          '400': { $ref: '#/components/responses/ValidationError' },
           '401': { $ref: '#/components/responses/Unauthorized' },
           '403': { $ref: '#/components/responses/Forbidden' },
         },
@@ -462,6 +482,28 @@ export const openApiDocument = {
           schema: { type: 'string', format: 'uuid' },
         },
       ],
+      patch: {
+        tags: ['Me'],
+        summary: 'Troca o apelido de um Pokémon do time (apenas o próprio dono)',
+        description: 'Envie `nickname: null` para remover o apelido.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/RenameCaptureInput' } },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Captura com o novo apelido.',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Capture' } } },
+          },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+        },
+      },
       delete: {
         tags: ['Me'],
         summary: 'Solta um Pokémon do time (apenas o próprio dono)',
@@ -533,6 +575,30 @@ export const openApiDocument = {
           types: { type: 'array', items: { type: 'string' }, example: ['electric'] },
           baseStats: { $ref: '#/components/schemas/PokemonBaseStats' },
           imageUrl: { type: 'string', format: 'uri', nullable: true },
+        },
+      },
+      PaginatedTrainers: {
+        type: 'object',
+        properties: {
+          data: { type: 'array', items: { $ref: '#/components/schemas/Trainer' } },
+          page: { type: 'integer', example: 1 },
+          limit: { type: 'integer', example: 20 },
+          total: { type: 'integer', example: 3 },
+          totalPages: { type: 'integer', example: 1 },
+        },
+      },
+      RenameCaptureInput: {
+        type: 'object',
+        required: ['nickname'],
+        properties: {
+          nickname: {
+            type: 'string',
+            nullable: true,
+            minLength: 1,
+            maxLength: 30,
+            example: 'Sparky',
+            description: '`null` remove o apelido.',
+          },
         },
       },
       PaginatedPokemons: {

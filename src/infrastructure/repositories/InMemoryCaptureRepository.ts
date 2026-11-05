@@ -31,6 +31,17 @@ export class InMemoryCaptureRepository implements ICaptureRepository {
     return this.captures.get(id) ?? null;
   }
 
+  async updateNickname(id: string, nickname: string | null): Promise<Capture> {
+    const capture = this.captures.get(id);
+
+    if (!capture) {
+      throw new Error(`Captura ${id} não encontrada.`);
+    }
+
+    capture.nickname = nickname ?? undefined;
+    return capture;
+  }
+
   async delete(id: string): Promise<void> {
     this.captures.delete(id);
   }

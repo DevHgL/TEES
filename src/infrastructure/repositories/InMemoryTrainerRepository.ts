@@ -1,13 +1,32 @@
 import { randomUUID } from 'node:crypto';
 
 import { Role, Trainer } from '@domain/entities/Trainer';
-import { CreateTrainerData, ITrainerRepository } from '@domain/repositories/ITrainerRepository';
+import {
+  CreateTrainerData,
+  ITrainerRepository,
+  TrainerFilter,
+} from '@domain/repositories/ITrainerRepository';
+import { Paginated, PaginationParams } from '@domain/repositories/Pagination';
 
 export class InMemoryTrainerRepository implements ITrainerRepository {
   private readonly trainers = new Map<string, Trainer>();
 
-  async findAll(): Promise<Trainer[]> {
-    return Array.from(this.trainers.values());
+  async findAll(
+    { search }: TrainerFilter,
+    { page, limit }: PaginationParams,
+  ): Promise<Paginated<Trainer>> {
+    const term = search?.toLowerCase();
+    const matches = Array.from(this.trainers.values()).filter(
+      (t) => !term || t.name.toLowerCase().includes(term) || t.email.toLowerCase().includes(term),
+    );
+
+    return {
+      data: matches.slice((page - 1) * limit, page * limit),
+      page,
+      limit,
+      total: matches.length,
+      totalPages: Math.ceil(matches.length / limit),
+    };
   }
 
   async findById(id: string): Promise<Trainer | null> {

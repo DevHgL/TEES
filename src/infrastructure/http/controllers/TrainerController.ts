@@ -13,6 +13,7 @@ import { toTrainerDTO } from '@infrastructure/http/presenters/trainerPresenter';
 import { changeRoleSchema, registerSchema } from '@infrastructure/http/validators/auth.schemas';
 import {
   capturePokemonSchema,
+  listTrainersQuerySchema,
   trainerIdParamSchema,
   trainerIdSchema,
 } from '@infrastructure/http/validators/trainer.schemas';
@@ -26,9 +27,10 @@ export class TrainerController {
     private readonly changeTrainerRoleUseCase: ChangeTrainerRoleUseCase,
   ) {}
 
-  list = async (_req: Request, res: Response): Promise<void> => {
-    const trainers = await this.listTrainersUseCase.execute();
-    res.status(200).json(trainers.map(toTrainerDTO));
+  list = async (req: Request, res: Response): Promise<void> => {
+    const { search, page, limit } = listTrainersQuerySchema.parse(req.query);
+    const result = await this.listTrainersUseCase.execute({ search }, { page, limit });
+    res.status(200).json({ ...result, data: result.data.map(toTrainerDTO) });
   };
 
   create = async (req: Request, res: Response): Promise<void> => {
