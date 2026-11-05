@@ -184,7 +184,10 @@ export const openApiDocument = {
       },
       post: {
         tags: ['Trainers'],
-        summary: 'Cadastra um novo treinador (equivalente a POST /auth/register)',
+        summary: 'Cadastra um novo treinador (descontinuada: use POST /auth/register)',
+        description:
+          'Mantida por compatibilidade com a Entrega 2. Faz exatamente o mesmo que `POST /auth/register`. A resposta traz os cabeçalhos `Deprecation` e `Link: </api/v1/auth/register>; rel="successor-version"`.',
+        deprecated: true,
         requestBody: {
           required: true,
           content: {
@@ -194,6 +197,10 @@ export const openApiDocument = {
         responses: {
           '201': {
             description: 'Treinador criado.',
+            headers: {
+              Deprecation: { $ref: '#/components/headers/Deprecation' },
+              Link: { $ref: '#/components/headers/SuccessorLink' },
+            },
             content: {
               'application/json': { schema: { $ref: '#/components/schemas/Trainer' } },
             },
@@ -214,9 +221,10 @@ export const openApiDocument = {
       ],
       post: {
         tags: ['Trainers'],
-        summary: 'Captura um Pokémon para o time do treinador (o próprio treinador ou ADMIN)',
+        summary: 'Captura para o time do treinador (descontinuada: use POST /me/team/catch)',
         description:
-          'Regra de negócio: o time ativo comporta no máximo 6 Pokémons. A checagem é atômica (transação com lock no treinador), inclusive para capturas simultâneas. Prefira `POST /me/team/catch`, que usa o ID do token.',
+          'Mantida por compatibilidade com a Entrega 2. Para o próprio time, `POST /me/team/catch` faz o mesmo usando o ID do token; esta rota ainda permite que um ADMIN capture para outro treinador. Regra de negócio: o time ativo comporta no máximo 6 Pokémons, com checagem atômica (transação com lock no treinador). A resposta traz os cabeçalhos `Deprecation` e `Link: </api/v1/me/team/catch>; rel="successor-version"`.',
+        deprecated: true,
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -227,6 +235,10 @@ export const openApiDocument = {
         responses: {
           '201': {
             description: 'Pokémon capturado.',
+            headers: {
+              Deprecation: { $ref: '#/components/headers/Deprecation' },
+              Link: { $ref: '#/components/headers/SuccessorLink' },
+            },
             content: {
               'application/json': { schema: { $ref: '#/components/schemas/Capture' } },
             },
@@ -251,7 +263,9 @@ export const openApiDocument = {
       ],
       get: {
         tags: ['Trainers'],
-        summary: 'Lista o time atual do treinador',
+        summary: 'Time público de um treinador',
+        description:
+          'Pública de propósito: retorna só os Pokémons do time (sem e-mail ou outros dados do treinador), como o ranking de `/stats`. Para o próprio time, use `GET /me/team`.',
         responses: {
           '200': {
             description: 'Time do treinador.',
@@ -482,6 +496,15 @@ export const openApiDocument = {
       refreshCookie: { type: 'apiKey', in: 'cookie', name: 'pokemanager_refresh' },
     },
     headers: {
+      Deprecation: {
+        description: 'Rota descontinuada desde a data informada (RFC 9745), ex: `@1793836800`.',
+        schema: { type: 'string' },
+      },
+      SuccessorLink: {
+        description:
+          'Rota que substitui esta (RFC 8288), ex: `</api/v1/auth/register>; rel="successor-version"`.',
+        schema: { type: 'string' },
+      },
       RefreshTokenCookie: {
         description:
           'pokemanager_refresh=<token>; Path=/api/v1/auth; HttpOnly; SameSite=Strict; Secure (em produção)',
