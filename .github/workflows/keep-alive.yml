@@ -1,0 +1,35 @@
+name: Keep-alive
+
+# O plano gratuito do Render hiberna o serviço após ~15 min sem acessos, e a primeira
+# requisição depois disso leva de 30 a 60 s. Este workflow faz um ping no healthcheck a
+# cada 5 min das 07:00 às 23:59 (horário de Brasília). De madrugada o serviço pode dormir:
+# 24 h por dia gastariam ~744 das 750 horas mensais gratuitas do Render.
+on:
+  schedule:
+    # Horários em UTC: 10:00–23:59 e 00:00–02:59 UTC = 07:00–23:59 em Brasília (UTC-3).
+    - cron: '*/5 10-23 * * *'
+    - cron: '*/5 0-2 * * *'
+  # Permite acordar a API manualmente (ex: antes da apresentação): Actions → Keep-alive → Run.
+  workflow_dispatch:
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  ping:
+    name: Ping no /api/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Acorda a API e confere se está saudável
+        env:
+          HEALTH_URL: https://pokemanager-api.onrender.com/api/health
+        run: |
+          # --max-time 90: se a API estiver hibernando, o cold start leva até ~60 s.
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --retry 3 --retry-delay 10 --retry-all-errors --max-time 90 "$HEALTH_URL")
+          echo "GET $HEALTH_URL -> $status"
+          test "$status" = 200
