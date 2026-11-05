@@ -1,10 +1,16 @@
 # 🐾 PokéManager API
 
+[![CI](https://github.com/DevHgL/TEES/actions/workflows/ci.yml/badge.svg)](https://github.com/DevHgL/TEES/actions/workflows/ci.yml)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)
+![Node](https://img.shields.io/badge/Node.js-24-green)
+
 API RESTful para gerenciamento de Treinadores e Pokémons, desenvolvida na disciplina
 **Desenvolvimento de APIs Modernas** (UFF).
 
-> **Status atual: Entrega 3 — Autenticação JWT, Autorização RBAC e Hardening OWASP.**
-> Docker completo, testes automatizados, CI/CD e deploy chegam na Entrega 4.
+> **Status atual: Entrega 4 — Docker, Testes, CI/CD e Cloud Deploy.**
+
+🔗 **URL de produção:** _a definir após o deploy no Render_
+📖 **Documentação Swagger:** _URL de produção_ + `/api/docs`
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -18,36 +24,50 @@ API RESTful para gerenciamento de Treinadores e Pokémons, desenvolvida na disci
 - Helmet, CORS e Rate Limiting (`express-rate-limit`)
 - Swagger / OpenAPI 3.0
 - Frontend estático (HTML/CSS/JS puro) servido pela própria API
+- Vitest + Supertest (testes unitários e E2E)
+- Docker (multi-stage) e Docker Compose
+- GitHub Actions (CI) e Render + Neon (deploy)
 
 ## 🚀 Como Executar o Projeto Localmente
 
-### Pré-requisitos
+### Com Docker (recomendado)
 
-- Node.js v20+
-- Docker e Docker Compose (para o PostgreSQL)
+Pré-requisito: Docker e Docker Compose.
 
 ```bash
-# 1. Instale as dependências (gera o Prisma Client automaticamente)
-npm install
+# 1. Clone o repositório
+git clone https://github.com/DevHgL/TEES.git
+cd TEES
 
-# 2. Configure as variáveis de ambiente
+# 2. Configure as variáveis de ambiente (troque o JWT_SECRET)
 cp .env.example .env
 
-# 3. Suba o PostgreSQL
-docker compose up -d
-
-# 4. Aplique as migrations e popule o banco
-#    (o seed importa os 151 Pokémons da 1ª geração da PokéAPI — sem internet, usa 3 fixos —
-#     e cria as contas de demonstração abaixo)
-npm run db:migrate
-npm run db:seed
-
-# 5. Suba a API em modo desenvolvimento
-npm run dev
+# 3. Suba banco + migrations + seed + API
+docker compose up -d --build
 ```
+
+O `docker compose up` sobe três serviços, em ordem:
+
+1. `postgres` — PostgreSQL 17, com os dados no volume `pgdata`;
+2. `migrate` — aplica as migrations e roda o seed (idempotente) e termina;
+3. `api` — a imagem de produção, que só inicia depois que o `migrate` termina com sucesso.
 
 - Frontend: `http://localhost:3000`
 - Swagger UI: `http://localhost:3000/api/docs`
+- Healthcheck: `http://localhost:3000/api/health`
+
+### Sem Docker para a API (modo desenvolvimento)
+
+Pré-requisito: Node.js v20+ (o banco continua no Docker).
+
+```bash
+npm install                     # gera o Prisma Client automaticamente
+cp .env.example .env
+docker compose up -d postgres   # só o banco
+npm run db:migrate              # aplica as migrations
+npm run db:seed                 # 151 Pokémons da PokéAPI (sem internet, usa 3 fixos) + contas demo
+npm run dev                     # API com hot reload
+```
 
 **Contas de demonstração** (criadas pelo seed quando `SEED_DEMO_PASSWORD` está definida — não
 defina essa variável em produção):
@@ -74,6 +94,10 @@ npm run lint        # ESLint
 npm run lint:fix
 npm run format      # Prettier
 npm run typecheck   # checagem de tipos sem emitir arquivos
+npm test            # todos os testes (unitários + E2E)
+npm run test:unit   # só os unitários (não precisam de banco)
+npm run test:e2e    # só os E2E (precisam do PostgreSQL rodando)
+npm run test:coverage
 ```
 
 ## 📚 Contrato REST
@@ -208,6 +232,63 @@ O middleware global (`errorHandler`) converte:
 | Rate limit excedido                                                         | 429    |
 | `PokeApiUnavailableError`                                                   | 502    |
 
+## 🧪 Testes (Entrega 4)
+
+Vitest + Supertest, em dois projetos (`vitest.config.mts`):
+
+- **Unitários** (`tests/unit/`): casos de uso isolados, com os repositórios in-memory
+  (`InMemoryTrainerRepository`, `InMemoryCaptureRepository`, `InMemoryRefreshTokenRepository`,
+  `InMemoryPokemonRepository`) e fakes da PokéAPI, do bcrypt e do JWT. Cobrem o limite de 6
+  Pokémons, as regras de RBAC, soltar só pelo dono, login, rotação e reuso de refresh token e o
+  CRUD do catálogo.
+- **E2E** (`tests/e2e/`): requisições HTTP reais com Supertest contra a app completa e um banco
+  PostgreSQL de testes (`pokemanager_test`, criado e migrado automaticamente). A PokéAPI é
+  substituída por um servidor HTTP local, então os testes não dependem da internet. Cobrem
+  register, login, catch, list, soltar, RBAC, refresh, rate limit e cabeçalhos de segurança.
+
+```bash
+docker compose up -d postgres
+npm test
+```
+
+Para usar outro banco nos E2E, defina `TEST_DATABASE_URL`. Os dados desse banco são apagados a
+cada teste.
+
+## 🐳 Docker
+
+O `Dockerfile` tem cinco estágios:
+
+| Estágio     | O que faz                                                                                                       |
+| ----------- | --------------------------------------------------------------------------------------------------------------- |
+| `deps`      | `npm ci` com todas as dependências                                                                              |
+| `build`     | gera o Prisma Client e compila o TypeScript para `dist/`                                                        |
+| `migrate`   | herda do `build` e roda `prisma migrate deploy` + seed (usado pelo compose)                                     |
+| `prod-deps` | só dependências de produção, sem o CLI do Prisma nem o TypeScript                                               |
+| `runtime`   | imagem final: `node:24-alpine`, `dist/` + `public/`, usuário `node` (não root) e `HEALTHCHECK` em `/api/health` |
+
+A imagem final não leva TypeScript, código-fonte nem ferramentas de build (~380 MB contra
+~1,3 GB do estágio de build).
+
+## ⚙️ CI/CD
+
+`.github/workflows/ci.yml` roda a cada push na `main` e em todo pull request:
+
+1. **quality** — com um PostgreSQL como serviço: `npm ci`, ESLint, Prettier, typecheck e todos os
+   testes com cobertura;
+2. **docker** — build da imagem de produção, só se o job anterior passar.
+
+## ☁️ Deploy (Render + Neon)
+
+O `render.yaml` descreve o serviço (Blueprint do Render):
+
+1. Crie um banco no [Neon](https://neon.tech) e copie a connection string (com `sslmode=require`).
+2. No [Render](https://render.com), **New → Blueprint** e aponte para este repositório.
+3. Preencha `DATABASE_URL` com a string do Neon. O `JWT_SECRET` é gerado pelo próprio Render.
+
+A cada deploy, o build compila a API, aplica as migrations no Neon e popula o catálogo; o Render
+só troca a versão depois que `/api/health` responde. O deploy automático acontece a cada push
+na `main`, depois que o CI passa.
+
 ## 🏗️ Arquitetura
 
 ```text
@@ -218,13 +299,15 @@ src/
   main/            # Composição da aplicação (DI manual, app.ts, server.ts)
 prisma/            # schema.prisma, migrations e seed
 public/            # Frontend estático
+tests/             # unit/ (casos de uso) e e2e/ (Supertest), com fakes em support/
 ```
 
 - `IPokemonRepository`, `ITrainerRepository`, `ICaptureRepository` e `IPokeApiGateway` são
   interfaces do domínio. As implementações (`Prisma*Repository`, `PokeApiGateway`) ficam em
   `infrastructure/` e são injetadas nas factories de `main/`. Trocar o `InMemoryPokemonRepository`
   pelo `PrismaPokemonRepository` não exigiu nenhuma alteração no domínio.
-- O `InMemoryPokemonRepository` foi mantido para os testes unitários da Entrega 4.
+- As versões in-memory dos repositórios (`InMemory*Repository`) implementam as mesmas interfaces
+  e são usadas nos testes unitários da Entrega 4.
 
 Path aliases configurados no `tsconfig.json`: `@domain/*`, `@application/*`,
 `@infrastructure/*`, `@main/*`.

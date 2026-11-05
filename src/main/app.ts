@@ -21,6 +21,7 @@ import { pokemonRoutes } from '@infrastructure/http/routes/pokemon.routes';
 import { statsRoutes } from '@infrastructure/http/routes/stats.routes';
 import { trainerRoutes } from '@infrastructure/http/routes/trainer.routes';
 
+import { prisma } from '@main/config/database';
 import { env } from '@main/config/env';
 import { makeAuthController } from '@main/factories/authController.factory';
 import { tokenService } from '@main/factories/authProviders.factory';
@@ -54,6 +55,16 @@ export function createApp(): Application {
   // Frontend estático (public/), servido na raiz da API.
   app.use(express.static(path.resolve(__dirname, '../../public')));
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
+
+  // Healthcheck do Docker e do provedor de nuvem: confirma que a API alcança o banco.
+  app.get('/api/health', async (_req, res) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      res.status(200).json({ status: 'ok' });
+    } catch {
+      res.status(503).json({ status: 'unavailable' });
+    }
+  });
 
   const authenticated = ensureAuthenticated(tokenService);
 

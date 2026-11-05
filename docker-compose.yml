@@ -16,5 +16,35 @@ services:
       timeout: 5s
       retries: 10
 
+  # Roda uma vez a cada `up`: aplica as migrations e popula o catálogo (idempotente).
+  migrate:
+    build:
+      context: .
+      target: migrate
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://pokemanager:pokemanager@postgres:5432/pokemanager?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      target: runtime
+    container_name: pokemanager-api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://pokemanager:pokemanager@postgres:5432/pokemanager?schema=public
+      # Localmente a API é servida em http://localhost; NODE_ENV=production forçaria HTTPS (HSTS/CSP).
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+    ports:
+      - '3000:3000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
 volumes:
   pgdata:
