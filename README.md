@@ -141,12 +141,21 @@ Legenda de acesso: 🌐 público · 🔑 autenticado (`Authorization: Bearer <to
 | ------ | -------------------------------------- | ------ | ---------------------------------------------------- |
 | GET    | `/api/v1/pokedex/search?name=pikachu`  | 🌐     | Consulta direto na PokéAPI e retorna o DTO formatado |
 | GET    | `/api/v1/trainers`                     | 🛡️     | Lista treinadores (com e-mail e perfil)              |
-| POST   | `/api/v1/trainers`                     | 🌐     | Cadastra um treinador (mesmo corpo do register)      |
-| POST   | `/api/v1/trainers/:trainerId/captures` | 🔑     | Captura para o próprio time (ou qualquer, se ADMIN)  |
-| GET    | `/api/v1/trainers/:trainerId/team`     | 🌐     | Lista o time atual do treinador                      |
+| POST   | `/api/v1/trainers`                     | 🌐     | ⚠️ Descontinuada: use `/auth/register`               |
+| POST   | `/api/v1/trainers/:trainerId/captures` | 🔑     | ⚠️ Descontinuada: use `/me/team/catch`               |
+| GET    | `/api/v1/trainers/:trainerId/team`     | 🌐     | Time público de um treinador (sem dados pessoais)    |
 | GET    | `/api/v1/stats`                        | 🌐     | Estatísticas agregadas (totais, rankings, por tipo)  |
 
 **Regra de negócio:** o time ativo comporta no máximo **6 Pokémons**; a 7ª captura retorna `422`.
+
+**Rotas descontinuadas:** `POST /trainers` e `POST /trainers/:trainerId/captures` são mínimos da
+Entrega 2 e por isso continuam funcionando, mas têm substitutas melhores (o cadastro com senha e
+a captura com o ID vindo do token). Elas aparecem riscadas no Swagger (`deprecated: true`), e
+cada resposta traz os cabeçalhos padronizados `Deprecation` (RFC 9745) e
+`Link: <...>; rel="successor-version"` (RFC 8288) apontando a substituta; o uso também fica
+registrado no log. A captura legada ainda é o único jeito de um `ADMIN` capturar para outro
+treinador. Já `GET /trainers/:trainerId/team` não é duplicada (`/me/team` mostra só o próprio
+time) e é pública de propósito: retorna apenas os Pokémons, como o ranking de `/stats`.
 
 ### Destaques de implementação
 
