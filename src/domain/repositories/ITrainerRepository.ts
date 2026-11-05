@@ -13,4 +13,7 @@ export interface ITrainerRepository {
   findByEmail(email: string): Promise<Trainer | null>;
   create(data: CreateTrainerData): Promise<Trainer>;
   updateRole(id: string, role: Role): Promise<Trainer>;
+  countByRole(role: Role): Promise<number>;
+  /** Remove o treinador; as capturas e os refresh tokens dele são apagados em cascata. */
+  delete(id: string): Promise<void>;
 }

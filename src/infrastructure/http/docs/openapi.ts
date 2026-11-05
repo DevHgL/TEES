@@ -388,6 +388,27 @@ export const openApiDocument = {
           '401': { $ref: '#/components/responses/Unauthorized' },
         },
       },
+      delete: {
+        tags: ['Me'],
+        summary: 'Apaga a própria conta (exige a senha atual)',
+        description:
+          'Remove o treinador autenticado junto com as capturas e as sessões. Senhas erradas contam no mesmo limite de tentativas do login. O último ADMIN não pode apagar a própria conta.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/DeleteAccountInput' } },
+          },
+        },
+        responses: {
+          '204': { description: 'Conta apagada.' },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '429': { $ref: '#/components/responses/TooManyRequests' },
+        },
+      },
     },
     '/me/team': {
       get: {
@@ -570,6 +591,13 @@ export const openApiDocument = {
         required: ['email', 'password'],
         properties: {
           email: { type: 'string', format: 'email', example: 'red@pokemanager.dev' },
+          password: { type: 'string', format: 'password', example: 'pokemon123' },
+        },
+      },
+      DeleteAccountInput: {
+        type: 'object',
+        required: ['password'],
+        properties: {
           password: { type: 'string', format: 'password', example: 'pokemon123' },
         },
       },

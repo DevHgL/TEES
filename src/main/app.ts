@@ -72,8 +72,10 @@ export function createApp(): Application {
   const authenticated = ensureAuthenticated(tokenService);
 
   app.use('/api', apiRateLimit(security));
-  app.use('/api/v1/auth', authRoutes(makeAuthController(), loginRateLimit(security)));
-  app.use('/api/v1/me', meRoutes(makeMeController(), authenticated));
+  const passwordLimiter = loginRateLimit(security);
+
+  app.use('/api/v1/auth', authRoutes(makeAuthController(), passwordLimiter));
+  app.use('/api/v1/me', meRoutes(makeMeController(), authenticated, passwordLimiter));
   app.use('/api/v1/pokemons', pokemonRoutes(makePokemonController(), authenticated));
   app.use('/api/v1/pokedex', pokedexRoutes(makePokedexController()));
   app.use('/api/v1/trainers', trainerRoutes(makeTrainerController(), authenticated));

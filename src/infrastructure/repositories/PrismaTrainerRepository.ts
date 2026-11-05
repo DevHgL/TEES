@@ -43,6 +43,14 @@ export class PrismaTrainerRepository implements ITrainerRepository {
     const record = await this.prisma.trainer.update({ where: { id }, data: { role } });
     return toDomain(record);
   }
+
+  async countByRole(role: Role): Promise<number> {
+    return this.prisma.trainer.count({ where: { role } });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.prisma.trainer.delete({ where: { id } });
+  }
 }
 
 function toDomain(record: TrainerRecord): Trainer {

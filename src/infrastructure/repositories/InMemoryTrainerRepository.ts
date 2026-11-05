@@ -42,4 +42,12 @@ export class InMemoryTrainerRepository implements ITrainerRepository {
     trainer.role = role;
     return trainer;
   }
+
+  async countByRole(role: Role): Promise<number> {
+    return Array.from(this.trainers.values()).filter((t) => t.role === role).length;
+  }
+
+  async delete(id: string): Promise<void> {
+    this.trainers.delete(id);
+  }
 }
