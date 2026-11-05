@@ -17,12 +17,16 @@ export class AuthTokensIssuer {
   ) {}
 
   async issue(trainer: Trainer): Promise<AuthTokens> {
+    const now = new Date();
+    // Limpeza a cada login/refresh: sem isso a tabela só cresce (um token por login).
+    await this.refreshTokenRepository.deleteExpiredForTrainer(trainer.id, now);
+
     const refreshToken = this.tokenService.generateRefreshToken();
 
     await this.refreshTokenRepository.create({
       trainerId: trainer.id,
       tokenHash: this.tokenService.hashRefreshToken(refreshToken),
-      expiresAt: new Date(Date.now() + this.tokenService.refreshTokenTtlMs),
+      expiresAt: new Date(now.getTime() + this.tokenService.refreshTokenTtlMs),
     });
 
     return {

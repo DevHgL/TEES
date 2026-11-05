@@ -37,4 +37,17 @@ export class InMemoryRefreshTokenRepository implements IRefreshTokenRepository {
       }
     }
   }
+
+  async deleteExpiredForTrainer(trainerId: string, now: Date): Promise<void> {
+    for (const [id, token] of this.tokens) {
+      if (token.trainerId === trainerId && token.expiresAt <= now) {
+        this.tokens.delete(id);
+      }
+    }
+  }
+
+  /** Total de tokens guardados (usado nos testes). */
+  get size(): number {
+    return this.tokens.size;
+  }
 }

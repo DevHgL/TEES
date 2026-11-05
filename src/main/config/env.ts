@@ -30,6 +30,9 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
+
+  /** Nível mínimo dos logs. Nos testes, o padrão é não logar nada. */
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -59,4 +62,5 @@ export const env = {
   rateLimitWindowMinutes: vars.RATE_LIMIT_WINDOW_MINUTES,
   rateLimitMax: vars.RATE_LIMIT_MAX,
   loginRateLimitMax: vars.LOGIN_RATE_LIMIT_MAX,
+  logLevel: vars.LOG_LEVEL ?? (vars.NODE_ENV === 'test' ? 'silent' : 'info'),
 };

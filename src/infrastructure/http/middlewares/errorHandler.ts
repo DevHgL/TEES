@@ -3,12 +3,7 @@ import { ZodError } from 'zod';
 
 import { AppError } from '@domain/errors/AppError';
 
-export function errorHandler(
-  err: unknown,
-  _req: Request,
-  res: Response,
-  _next: NextFunction,
-): void {
+export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof ZodError) {
     res.status(400).json({
       message: 'Dados inválidos.',
@@ -31,6 +26,7 @@ export function errorHandler(
     return;
   }
 
-  console.error(err);
+  // O pino-http anexa o logger (com o ID da requisição) em req.log.
+  req.log.error({ err }, 'Erro não tratado');
   res.status(500).json({ message: 'Erro interno do servidor.' });
 }

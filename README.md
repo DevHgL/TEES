@@ -28,6 +28,7 @@ API RESTful para gerenciamento de Treinadores e Pokémons, desenvolvida na disci
 - Swagger / OpenAPI 3.0
 - Frontend estático (HTML/CSS/JS puro) servido pela própria API
 - Vitest + Supertest (testes unitários e E2E)
+- pino (logs estruturados em JSON)
 - Docker (multi-stage) e Docker Compose
 - GitHub Actions (CI) e Render + Neon (deploy)
 
@@ -215,6 +216,8 @@ isso na aba **Estatísticas**.
 - **CORS:** apenas as origens em `CORS_ORIGINS` (o frontend em `/` é a mesma origem).
 - **Rate limiting:** 300 requisições por IP a cada 15 minutos na API e só 5 tentativas de login
   **com falha** por IP no mesmo período (tentativas certas não contam).
+- **Limpeza de sessões:** a cada login/refresh, os refresh tokens expirados do treinador são
+  apagados. Os revogados ainda válidos ficam, porque é com eles que o reuso é detectado.
 - **Outros:** corpo JSON limitado a 10 KB, rotas inexistentes respondem 404 em JSON e o `.env` é
   validado com Zod no startup.
 
@@ -247,7 +250,11 @@ Vitest + Supertest, em dois projetos (`vitest.config.mts`):
 - **E2E** (`tests/e2e/`): requisições HTTP reais com Supertest contra a app completa e um banco
   PostgreSQL de testes (`pokemanager_test`, criado e migrado automaticamente). A PokéAPI é
   substituída por um servidor HTTP local, então os testes não dependem da internet. Cobrem
-  register, login, catch, list, soltar, RBAC, refresh, rate limit e cabeçalhos de segurança.
+  register, login, catch, list, soltar, RBAC, refresh, rate limit, cabeçalhos de segurança e o
+  CRUD do catálogo.
+- **Concorrência:** um teste E2E dispara 20 capturas simultâneas com 1 vaga no time e confere que
+  só 1 é aceita. Sem o `SELECT ... FOR UPDATE` o mesmo teste falha (10 são aceitas e o time vai
+  a 15), então ele prova a trava, e não só o caminho feliz.
 
 ```bash
 docker compose up -d postgres
@@ -271,6 +278,17 @@ O `Dockerfile` tem cinco estágios:
 
 A imagem final não leva TypeScript, código-fonte nem ferramentas de build (~380 MB contra
 ~1,3 GB do estágio de build).
+
+## 📋 Logs
+
+Cada requisição gera uma linha de log em JSON (`pino-http`), com método, rota, status, tempo de
+resposta e um ID de correlação. O ID vem do cabeçalho `X-Request-Id` (ou é gerado) e volta na
+resposta, então um erro relatado por um cliente é encontrado direto nos logs do Render. Respostas
+4xx saem como `warn`, 5xx como `error` (com a stack), e os healthchecks de `/api/health` não são
+logados. O cabeçalho `Authorization` nunca vai para o log.
+
+O nível é configurado em `LOG_LEVEL` (padrão `info`; nos testes, `silent`). Em desenvolvimento,
+`npm run dev` formata a saída com `pino-pretty`.
 
 ## ⚙️ CI/CD
 

@@ -7,6 +7,7 @@ import { openApiDocument } from '@infrastructure/http/docs/openapi';
 import { ensureAuthenticated } from '@infrastructure/http/middlewares/ensureAuthenticated';
 import { errorHandler } from '@infrastructure/http/middlewares/errorHandler';
 import { notFound } from '@infrastructure/http/middlewares/notFound';
+import { requestLogger } from '@infrastructure/http/middlewares/requestLogger';
 import {
   apiRateLimit,
   corsPolicy,
@@ -23,6 +24,7 @@ import { trainerRoutes } from '@infrastructure/http/routes/trainer.routes';
 
 import { prisma } from '@main/config/database';
 import { env } from '@main/config/env';
+import { logger } from '@main/config/logger';
 import { makeAuthController } from '@main/factories/authController.factory';
 import { tokenService } from '@main/factories/authProviders.factory';
 import { makeMeController } from '@main/factories/meController.factory';
@@ -47,6 +49,7 @@ export function createApp(): Application {
     app.set('trust proxy', 1);
   }
 
+  app.use(requestLogger(logger));
   app.use(securityHeaders(security));
   app.use(corsPolicy(security));
   // Limite de tamanho do corpo: evita payloads gigantes (negação de serviço).
