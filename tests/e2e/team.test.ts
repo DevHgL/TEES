@@ -48,6 +48,25 @@ describe('POST /api/v1/me/team/catch', () => {
     expect(res.body.message).toMatch(/máximo de 6/);
   });
 
+  it('aceita só 1 de 20 capturas simultâneas quando falta uma vaga (sem condição de corrida)', async () => {
+    const ash = await createSession('Ash');
+    for (const name of TEAM.slice(0, 5)) {
+      await catchPokemon(ash, name).expect(201);
+    }
+
+    // 20 requisições ao mesmo tempo, com um Pokémon já em cache (a PokéAPI não espalha
+    // as requisições no tempo). Sem o SELECT ... FOR UPDATE, várias leem a contagem
+    // antiga e o time passa de 6 (medido: 15 Pokémons). Com a trava, só 1 entra.
+    const responses = await Promise.all(
+      Array.from({ length: 20 }, () => catchPokemon(ash, 'pikachu')),
+    );
+    const statuses = responses.map((res) => res.status);
+
+    expect(statuses.filter((status) => status === 201)).toHaveLength(1);
+    expect(statuses.filter((status) => status === 422)).toHaveLength(19);
+    expect(await prisma.capture.count({ where: { trainerId: ash.id } })).toBe(6);
+  });
+
   it('Pokémon inexistente na PokéAPI dá 404', async () => {
     const ash = await createSession('Ash');
     await catchPokemon(ash, 'digimon').expect(404);
