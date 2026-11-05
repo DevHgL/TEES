@@ -9,8 +9,11 @@ API RESTful para gerenciamento de Treinadores e Pokémons, desenvolvida na disci
 
 > **Status atual: Entrega 4 — Docker, Testes, CI/CD e Cloud Deploy.**
 
-🔗 **URL de produção:** _a definir após o deploy no Render_
-📖 **Documentação Swagger:** _URL de produção_ + `/api/docs`
+🔗 **URL de produção:** [https://pokemanager-api.onrender.com](https://pokemanager-api.onrender.com)
+📖 **Documentação Swagger:** [https://pokemanager-api.onrender.com/api/docs](https://pokemanager-api.onrender.com/api/docs)
+
+> Hospedada no plano gratuito do Render: depois de ~15 min sem acessos o serviço hiberna e a
+> primeira requisição pode levar de 30 a 60 s.
 
 ## 🛠️ Tecnologias Utilizadas
 
