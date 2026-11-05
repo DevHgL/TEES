@@ -16,6 +16,7 @@
         </div>
         <div id="logged-in" hidden>
           <span id="user-label"></span>
+          <button id="delete-account-btn" class="ghost">Excluir conta</button>
           <button id="logout-btn" class="ghost">Sair</button>
         </div>
       </div>
@@ -34,6 +35,23 @@
       />
       <button type="submit" id="auth-submit">Entrar</button>
       <span id="auth-hint" class="muted"></span>
+    </form>
+
+    <form id="delete-account-form" class="trainer-form danger-zone" hidden>
+      <p>
+        <strong>Excluir conta?</strong> O seu time e as suas sessões também serão apagados. Não dá
+        para desfazer.
+      </p>
+      <input
+        name="password"
+        type="password"
+        placeholder="Confirme com a sua senha"
+        required
+        maxlength="72"
+        autocomplete="current-password"
+      />
+      <button type="submit" class="danger">Excluir minha conta</button>
+      <button type="button" id="delete-account-cancel" class="ghost">Cancelar</button>
     </form>
 
     <nav class="tabs">

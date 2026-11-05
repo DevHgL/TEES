@@ -8,6 +8,8 @@
   --accent-text: #ffffff;
   --error: #b42318;
   --ok: #067647;
+  /* Fundo de botões destrutivos: igual nos dois temas, com contraste para texto branco. */
+  --danger: #b42318;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -88,6 +90,11 @@ button.ghost {
   color: inherit;
   border-color: currentColor;
 }
+button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #ffffff;
+}
 
 .trainer-form,
 .search {
@@ -100,6 +107,20 @@ button.ghost {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
+.danger-zone {
+  align-items: center;
+  border-left: 4px solid var(--error);
+}
+.danger-zone p {
+  margin: 0;
+  flex-basis: 100%;
+}
+.danger-zone input {
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+}
+
 .search input {
   flex: 1;
   min-width: 180px;

@@ -135,6 +135,8 @@ function renderSession() {
     const { name, role } = session.trainer;
     $('#user-label').textContent = `${name} · ${role}`;
     $('#auth-form').hidden = true;
+  } else {
+    $('#delete-account-form').hidden = true;
   }
   const captureBtn = $('#capture-btn');
   if (captureBtn) captureBtn.disabled = !isLoggedIn();
@@ -192,6 +194,45 @@ $('#logout-btn').addEventListener('click', async () => {
   toast('Você saiu.');
   if (!$('#tab-admin').hidden) openTab('pokedex');
   else reloadCurrentTab();
+});
+
+// ---------- excluir conta ----------
+
+function closeDeleteAccountForm() {
+  const form = $('#delete-account-form');
+  form.reset();
+  form.hidden = true;
+}
+
+$('#delete-account-btn').addEventListener('click', () => {
+  const form = $('#delete-account-form');
+  if (!form.hidden) return closeDeleteAccountForm();
+  form.hidden = false;
+  form.password.focus();
+});
+
+$('#delete-account-cancel').addEventListener('click', closeDeleteAccountForm);
+
+$('#delete-account-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const submit = form.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  try {
+    // A API exige a senha atual: só o token não basta para apagar a conta.
+    await api('/me', { method: 'DELETE', body: JSON.stringify({ password: form.password.value }) });
+    const { name } = session.trainer;
+    closeDeleteAccountForm();
+    saveSession(null);
+    toast(`A conta de ${name} foi excluída.`);
+    if (!$('#tab-admin').hidden) openTab('pokedex');
+    else reloadCurrentTab();
+  } catch (err) {
+    form.password.select();
+    toast(err.message, true);
+  } finally {
+    submit.disabled = false;
+  }
 });
 
 // ---------- pokédex ----------
