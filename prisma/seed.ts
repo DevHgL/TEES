@@ -58,6 +58,14 @@ async function fetchFromPokeApi(): Promise<SeedPokemon[]> {
 }
 
 async function seedCatalog(): Promise<void> {
+  // Roda a cada deploy: com o catálogo já completo, nem consulta a PokéAPI (~150 requisições).
+  const catalogSize = await prisma.pokemon.count();
+
+  if (catalogSize >= SEED_LIMIT) {
+    console.log(`Catálogo já tem ${catalogSize} Pokémons — nada a importar.`);
+    return;
+  }
+
   let pokemons: SeedPokemon[];
 
   try {
