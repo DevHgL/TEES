@@ -12,8 +12,9 @@ API RESTful para gerenciamento de Treinadores e Pokémons, desenvolvida na disci
 🔗 **URL de produção:** [https://pokemanager-api.onrender.com](https://pokemanager-api.onrender.com)
 📖 **Documentação Swagger:** [https://pokemanager-api.onrender.com/api/docs](https://pokemanager-api.onrender.com/api/docs)
 
-> Hospedada no plano gratuito do Render: depois de ~15 min sem acessos o serviço hiberna e a
-> primeira requisição pode levar de 30 a 60 s.
+> Hospedada no plano gratuito do Render, que hiberna o serviço após ~15 min sem acessos. O
+> workflow **Keep-alive** mantém a API acordada das 07:00 às 23:59 (horário de Brasília); de
+> madrugada, a primeira requisição pode levar de 30 a 60 s.
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -310,6 +311,12 @@ O nível é configurado em `LOG_LEVEL` (padrão `info`; nos testes, `silent`). E
 1. **quality** — com um PostgreSQL como serviço: `npm ci`, ESLint, Prettier, typecheck e todos os
    testes com cobertura;
 2. **docker** — build da imagem de produção, só se o job anterior passar.
+
+`.github/workflows/keep-alive.yml` faz um ping em `/api/health` a cada 5 minutos, das 07:00 às
+23:59 (horário de Brasília), para o plano gratuito do Render não hibernar a API. A madrugada fica
+de fora porque 24 h por dia gastariam ~744 das 750 horas mensais gratuitas. O ping falha (e o
+GitHub avisa) se a API não responder 200. Para acordá-la na hora, use **Actions → Keep-alive →
+Run workflow**.
 
 ## ☁️ Deploy (Render + Neon)
 
